@@ -23,6 +23,8 @@ struct TellAStoryView: View {
                     RecordingStepView(flow: flow)
                 case .saved(let story):
                     SavedStepView(flow: flow, story: story)
+                case .keptSafe:
+                    KeptSafeView()
                 case .microphoneOff:
                     MicrophoneOffView()
                 }

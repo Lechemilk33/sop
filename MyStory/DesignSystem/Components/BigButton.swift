@@ -98,8 +98,9 @@ struct FilledButtonStyle: ButtonStyle {
     var alignment: Alignment = .leading
 
     @Environment(\.colorSchemeContrast) private var contrast
-    @Environment(\.isEnabled) private var isEnabled
 
+    /// Disabled buttons keep full contrast; their words say what's happening
+    /// ("Saving…"), because a faded button is hard to read with Alzheimer's.
     func makeBody(configuration: Configuration) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         return configuration.label
@@ -111,7 +112,6 @@ struct FilledButtonStyle: ButtonStyle {
             .overlay(shape.strokeBorder(tone.rim, lineWidth: contrast == .increased ? 4 : Metrics.tappableBorder))
             .overlay(shape.fill(Palette.ink.opacity(configuration.isPressed ? 0.14 : 0)))
             .contentShape(shape)
-            .opacity(isEnabled ? 1 : 0.45)
     }
 }
 

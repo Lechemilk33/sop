@@ -9,6 +9,7 @@ struct QuestionEditorView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @Environment(ClipPlayer.self) private var clipPlayer
+    @Environment(StoryRecorder.self) private var recorder
     @Query(sort: \Chapter.sortOrder) private var chapters: [Chapter]
     @Query(sort: \Person.sortOrder) private var people: [Person]
 
@@ -33,7 +34,7 @@ struct QuestionEditorView: View {
             } header: {
                 Text("The question")
             } footer: {
-                Text("Invite a story instead of testing memory. \u{201C}Tell me about your first car\u{201D} works better than \u{201C}Do you remember your first car?\u{201D} Keep it to one question.")
+                Text("Invite a story instead of testing memory. \u{201C}Tell me about a car you loved\u{201D} works better than \u{201C}Do you remember your first car?\u{201D} Keep it to one question, and ask about long ago rather than this week.")
             }
 
             Section("Chapter") {
@@ -84,7 +85,8 @@ struct QuestionEditorView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save", action: save)
-                    .disabled(trimmedText.isEmpty)
+                    // Finish recording the question first, so it's saved too.
+                    .disabled(trimmedText.isEmpty || recorder.state != .idle)
             }
         }
         .onAppear(perform: load)

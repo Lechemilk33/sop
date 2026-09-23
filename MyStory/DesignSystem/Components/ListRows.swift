@@ -10,6 +10,8 @@ struct TappableRow<Leading: View, Trailing: View>: View {
     private let leading: Leading
     private let trailing: Trailing
 
+    @Environment(\.colorSchemeContrast) private var contrast
+
     init(
         title: String,
         detail: String?,
@@ -53,7 +55,7 @@ struct TappableRow<Leading: View, Trailing: View>: View {
             .padding(.trailing, 16)
             .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
             .background(shape.fill(Palette.card))
-            .overlay(shape.strokeBorder(Palette.edge, lineWidth: Metrics.tappableBorder))
+            .overlay(shape.strokeBorder(contrast == .increased ? Palette.ink : Palette.edge, lineWidth: Metrics.tappableBorder))
             .contentShape(shape)
         }
         .buttonStyle(PressDimStyle())
@@ -123,36 +125,5 @@ struct PlayDisc: View {
             .background(Circle().fill(Palette.marigold))
             .overlay(Circle().strokeBorder(Palette.marigoldRim, lineWidth: Metrics.tappableBorder))
             .accessibilityHidden(true)
-    }
-}
-
-/// A small tappable chip with someone's photo and name.
-struct PersonChip: View {
-    let person: Person
-    let action: () -> Void
-
-    var body: some View {
-        let shape = Capsule(style: .continuous)
-        Button {
-            TapGuard.perform(action)
-        } label: {
-            HStack(spacing: 10) {
-                StoredImage(cacheKey: person.thumbnailCacheKey, data: person.thumbnailData ?? person.photoData)
-                    .frame(width: 48, height: 48)
-                    .clipShape(Circle())
-                Text(person.name)
-                    .appFont(.compactButton)
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
-            }
-            .padding(.leading, 6)
-            .padding(.trailing, 20)
-            .frame(minHeight: Metrics.minimumTarget)
-            .background(shape.fill(Palette.card))
-            .overlay(shape.strokeBorder(Palette.edge, lineWidth: Metrics.tappableBorder))
-            .contentShape(shape)
-        }
-        .buttonStyle(PressDimStyle())
-        .accessibilityLabel(Text(person.name))
     }
 }

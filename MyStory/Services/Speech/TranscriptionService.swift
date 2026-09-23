@@ -112,7 +112,7 @@ final class TranscriptionService {
 
     private func transcribeStory(_ id: PersistentIdentifier) async {
         let context = container.mainContext
-        guard let story = context.model(for: id) as? Story, !story.isDeleted, let audio = story.audioData else { return }
+        guard let story = Self.story(id, in: context), let audio = story.audioData else { return }
 
         guard SpeechTranscriber.isAvailable else {
             story.transcriptState = .unavailable
@@ -121,26 +121,44 @@ final class TranscriptionService {
         }
 
         story.transcriptState = .working
+        try? context.save()
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("transcribe-\(UUID().uuidString)")
             .appendingPathExtension(story.audioFileExtension)
         defer { try? FileManager.default.removeItem(at: fileURL) }
 
+        let result: Result<String, Error>
         do {
             try audio.write(to: fileURL)
             if readiness != .ready {
                 await prepare()
             }
-            let text = try await Self.transcribeFile(at: fileURL, locale: await Self.transcriptionLocale())
-            // Never overwrite words the family has already corrected.
-            if !story.hasTranscript {
-                story.transcript = text
-            }
-            story.transcriptState = .done
+            result = .success(try await Self.transcribeFile(at: fileURL, locale: await Self.transcriptionLocale()))
         } catch {
-            story.transcriptState = .failed
+            result = .failure(error)
+        }
+
+        // The family may have deleted the story while it was being written
+        // down, so look it up again rather than touching the old copy.
+        guard let current = Self.story(id, in: context) else { return }
+        switch result {
+        case .success(let text):
+            // Never overwrite words the family has already corrected.
+            if !current.hasTranscript {
+                current.transcript = text
+            }
+            current.transcriptState = .done
+        case .failure:
+            current.transcriptState = .failed
         }
         try? context.save()
+    }
+
+    /// The story with this ID, or nil if it has been deleted.
+    private static func story(_ id: PersistentIdentifier, in context: ModelContext) -> Story? {
+        var descriptor = FetchDescriptor<Story>(predicate: #Predicate { $0.persistentModelID == id })
+        descriptor.fetchLimit = 1
+        return try? context.fetch(descriptor).first
     }
 
     private static func transcriptionLocale() async -> Locale {

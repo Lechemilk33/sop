@@ -17,7 +17,9 @@ enum Palette {
     static let hairline = Color(hex: 0xDCCBB0)
 
     static let brick = Color(hex: 0x9F3118)
-    static let blue = Color(hex: 0x1B4683)
+    static let brickTint = Color(hex: 0xF6DDD3)
+    /// Deep navy, so it differs from brick in lightness as well as hue.
+    static let blue = Color(hex: 0x122F5C)
     static let marigold = Color(hex: 0xF2B535)
     static let marigoldRim = Color(hex: 0x7A5410)
     static let marigoldTint = Color(hex: 0xF8E6B8)

@@ -12,8 +12,6 @@
 	<string>iCloud.$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>MyStoryICloudSync</key>
 	<string>$(MYSTORY_ICLOUD_SYNC)</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>If the family code is forgotten, Face ID or the iPhone passcode can open the family area instead.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>My Story uses the microphone to record stories in your own voice.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

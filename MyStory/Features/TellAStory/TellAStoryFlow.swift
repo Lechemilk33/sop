@@ -10,14 +10,19 @@ final class TellAStoryFlow {
         case question
         case recording
         case saved(Story)
+        /// The story couldn't be stored right now, but the recording is safe
+        /// on the iPhone and will be rescued automatically.
+        case keptSafe
         case microphoneOff
     }
 
     private(set) var step: Step = .question
     private(set) var prompt: StoryPrompt = .fallback
-    /// Shown gently when a recording was only a moment long.
-    private(set) var showsTooShortNote = false
+    /// A calm note on the question screen, e.g. after a very short recording.
+    private(set) var note: String?
     private(set) var isSaving = false
+    /// Why the last recording stopped by itself, if it did.
+    private(set) var stopReason: StoryRecorder.StopReason?
 
     let seed: PromptSeed
 
@@ -33,7 +38,7 @@ final class TellAStoryFlow {
     @ObservationIgnored private var generator = SystemRandomNumberGenerator()
 
     /// Shorter than this is almost certainly a mistaken tap.
-    private let minimumDuration: TimeInterval = 2
+    private let minimumDuration: TimeInterval = 1.5
 
     init(
         seed: PromptSeed,
@@ -65,26 +70,31 @@ final class TellAStoryFlow {
 
     func nextQuestion() {
         reader.stop()
-        showsTooShortNote = false
+        note = nil
         prompt = makePrompt()
         readIfAutomatic()
     }
 
     func startRecording() async {
         reader.stop()
-        showsTooShortNote = false
-        recorder.onReachedSafetyLimit = { [weak self] in
-            Task { await self?.finishRecording() }
+        note = nil
+        stopReason = nil
+        recorder.onMustStop = { [weak self] reason in
+            Task { await self?.finishRecording(stoppedBecause: reason) }
         }
         do {
             try await recorder.start()
             step = .recording
-        } catch {
+        } catch StoryRecorder.RecorderError.microphoneNotAllowed {
             step = .microphoneOff
+        } catch StoryRecorder.RecorderError.notEnoughSpace {
+            note = "The iPhone is too full to record right now. Ask your family to make some room."
+        } catch {
+            note = "Recording didn't start. Please try again."
         }
     }
 
-    func finishRecording() async {
+    func finishRecording(stoppedBecause reason: StoryRecorder.StopReason? = nil) async {
         guard case .recording = step, !isSaving else { return }
         isSaving = true
         defer { isSaving = false }
@@ -93,20 +103,21 @@ final class TellAStoryFlow {
         do {
             finished = try await recorder.finish()
         } catch {
-            step = .question
+            step = .keptSafe
             return
         }
 
-        if finished.duration < minimumDuration {
+        let talked = finished.bestDuration
+        if talked > 0, talked < minimumDuration {
             try? FileManager.default.removeItem(at: finished.fileURL)
-            showsTooShortNote = true
+            note = "That was very short. Take your time and try again."
             step = .question
             return
         }
 
         guard let audio = try? Data(contentsOf: finished.fileURL) else {
-            // The raw file stays in the recovery folder and is rescued next launch.
-            step = .question
+            // The file stays in the recovery folder and becomes a story later.
+            step = .keptSafe
             return
         }
 
@@ -114,43 +125,48 @@ final class TellAStoryFlow {
         context.insert(story)
         story.audioData = audio
         story.audioFileExtension = finished.fileExtension
-        story.duration = finished.duration
+        story.duration = talked
         story.chapter = prompt.chapter ?? defaultChapter()
         story.question = prompt.question
         story.photo = prompt.photo
+        var people: [Person] = []
         if let person = prompt.aboutPerson {
-            story.people = [person]
+            people.append(person)
         }
-        if let photoPeople = prompt.photo?.people, !photoPeople.isEmpty {
-            var people = story.people ?? []
-            for person in photoPeople where !people.contains(where: { $0.persistentModelID == person.persistentModelID }) {
-                people.append(person)
-            }
-            story.people = people
+        for person in prompt.photo?.people ?? [] where !people.contains(where: { $0.persistentModelID == person.persistentModelID }) {
+            people.append(person)
         }
+        story.people = people
 
         do {
             try context.save()
             try? FileManager.default.removeItem(at: finished.fileURL)
             transcription.enqueue(story)
+            stopReason = reason
             Haptics.success()
             step = .saved(story)
         } catch {
-            context.delete(story)
-            step = .question
+            context.rollback()
+            step = .keptSafe
         }
     }
 
     /// "Tell another story".
     func startOver() {
-        showsTooShortNote = false
+        note = nil
+        stopReason = nil
         prompt = makePrompt()
         step = .question
         readIfAutomatic()
     }
 
+    /// Leaving the screen never loses a story: a recording in progress is
+    /// finished and saved first.
     func leave() {
         reader.stop()
+        if case .recording = step {
+            Task { await finishRecording() }
+        }
     }
 
     // MARK: - Choosing the question
@@ -195,7 +211,9 @@ final class TellAStoryFlow {
             using: &generator
         )
         guard let picked, let question = questions.first(where: { $0.uuid == picked.id }) else {
-            return .fallback
+            var fallback = StoryPrompt.fallback
+            fallback.chapter = chapter ?? Seeder.chapter(forKey: QuestionBank.thoughtsKey, in: context)
+            return fallback
         }
         question.timesShown += 1
         question.lastShownAt = Date()

@@ -111,35 +111,60 @@ struct FamilyAreaView: View {
     }
 }
 
-/// Whether stories are backed up to iCloud.
+/// Whether stories are backed up to iCloud, checked each time it's shown.
 struct BackupStatusRow: View {
+    @State private var status: CloudSync.Status = .checking
+
     var body: some View {
-        if CloudSync.isEnabled {
-            Label {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Backing up to iCloud")
-                        .font(.body.weight(.semibold))
-                    Text("Stories are copied to this iPhone's iCloud account.")
+        Group {
+            switch status {
+            case .checking:
+                row(
+                    title: "Checking iCloud backup…",
+                    detail: "",
+                    systemImage: "icloud",
+                    color: Palette.softInk
+                )
+            case .backingUp:
+                row(
+                    title: "Backing up to iCloud",
+                    detail: "Stories are copied to this iPhone's iCloud account.",
+                    systemImage: "checkmark.icloud.fill",
+                    color: Palette.green
+                )
+            case .notSignedIn:
+                row(
+                    title: "Not backing up right now",
+                    detail: "This iPhone isn't signed in to iCloud, or iCloud is off for My Story. Check the iPhone's Settings app, under his name, then iCloud. Until then, use Save a copy of everything.",
+                    systemImage: "exclamationmark.icloud",
+                    color: Palette.brick
+                )
+            case .thisPhoneOnly:
+                row(
+                    title: "Saved on this iPhone only",
+                    detail: "Use Save a copy of everything regularly. iCloud backup can be turned on later (see the README).",
+                    systemImage: "exclamationmark.icloud",
+                    color: Palette.brick
+                )
+            }
+        }
+        .task { status = await CloudSync.currentStatus() }
+    }
+
+    private func row(title: String, detail: String, systemImage: String, color: Color) -> some View {
+        Label {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.body.weight(.semibold))
+                if !detail.isEmpty {
+                    Text(detail)
                         .font(.footnote)
                         .foregroundStyle(Palette.softInk)
                 }
-            } icon: {
-                Image(systemName: "checkmark.icloud.fill")
-                    .foregroundStyle(Palette.green)
             }
-        } else {
-            Label {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Saved on this iPhone only")
-                        .font(.body.weight(.semibold))
-                    Text("Use Save a copy of everything regularly. iCloud backup can be turned on later (see the README).")
-                        .font(.footnote)
-                        .foregroundStyle(Palette.softInk)
-                }
-            } icon: {
-                Image(systemName: "exclamationmark.icloud")
-                    .foregroundStyle(Palette.brick)
-            }
+        } icon: {
+            Image(systemName: systemImage)
+                .foregroundStyle(color)
         }
     }
 }

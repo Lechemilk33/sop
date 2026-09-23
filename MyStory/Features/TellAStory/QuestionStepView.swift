@@ -9,8 +9,8 @@ struct QuestionStepView: View {
     var body: some View {
         ScreenScaffold {
             SectionHeader(title: "Tell a story", systemImage: Symbols.tell, tone: .brick)
-            if flow.showsTooShortNote {
-                Text("That was very short. Take your time and try again.")
+            if let note = flow.note {
+                Text(note)
                     .appFont(.bodyBold)
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)

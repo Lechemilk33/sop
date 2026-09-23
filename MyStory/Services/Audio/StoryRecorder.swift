@@ -6,12 +6,14 @@ import UIKit
 ///
 /// Built so a story is never lost:
 /// - It records uncompressed audio into a `.caf` file, which stays readable
-///   even if the app is closed mid-story. Next launch, `RecordingRecovery`
-///   turns any leftover file into a story.
-/// - It never stops on silence and has no time limit he'd notice. A two-hour
-///   safety stop only protects storage if a recording is forgotten.
+///   even if the app is closed mid-story. `RecordingRecovery` turns any
+///   leftover file into a story.
+/// - It never stops on silence and has no time limit he'd notice. It stops by
+///   itself only to protect the story: when the iPhone is nearly full, if the
+///   system stops the microphone, or after a two-hour safety limit.
 /// - A phone call pauses it; it picks up again by itself when the call ends.
-/// - The screen stays awake while it listens.
+/// - The screen stays awake while it listens, and finishing keeps running
+///   briefly in the background if the phone is locked at that moment.
 @MainActor
 @Observable
 final class StoryRecorder {
@@ -30,8 +32,17 @@ final class StoryRecorder {
         case clip
     }
 
-    enum RecorderError: Error {
+    /// Why a recording stopped without "I'm finished".
+    enum StopReason: Equatable {
+        case storageAlmostFull
+        case systemStopped
+        case safetyLimit
+    }
+
+    enum RecorderError: Error, Equatable {
         case microphoneNotAllowed
+        case notEnoughSpace
+        case busy
         case couldNotStart
         case nothingRecorded
     }
@@ -42,14 +53,28 @@ final class StoryRecorder {
     /// His voice level from 0 to 1, for the listening indicator.
     private(set) var level: Double = 0
 
-    /// Called if a recording reaches the safety limit.
-    var onReachedSafetyLimit: (@MainActor () -> Void)?
+    /// Called once if the recording has to stop to protect the story.
+    var onMustStop: (@MainActor (StopReason) -> Void)?
+
     let safetyLimit: TimeInterval = 2 * 60 * 60
+    /// Needed to start: about 30 minutes of raw audio plus room to convert it.
+    let bytesNeededToStart: Int64 = 250_000_000
+    /// Below this while recording, stop and save what there is.
+    let bytesNeededToContinue: Int64 = 60_000_000
 
     @ObservationIgnored private var recorder: AVAudioRecorder?
     @ObservationIgnored private var fileURL: URL?
     @ObservationIgnored private var meterTask: Task<Void, Never>?
     @ObservationIgnored private var interruptionObserver: NSObjectProtocol?
+    @ObservationIgnored private var ticks = 0
+    @ObservationIgnored private var hasAskedToStop = false
+    private let events = RecorderEventRelay()
+
+    init() {
+        events.onProblem = { [weak self] in
+            self?.askToStop(.systemStopped)
+        }
+    }
 
     /// Where raw story recordings live until they are safely stored in a story.
     static var inProgressDirectory: URL {
@@ -63,6 +88,12 @@ final class StoryRecorder {
         URL.applicationSupportDirectory
             .appendingPathComponent("Recordings", isDirectory: true)
             .appendingPathComponent("Clips", isDirectory: true)
+    }
+
+    /// Free space for important data, in bytes.
+    static func availableCapacity() -> Int64? {
+        let values = try? URL.applicationSupportDirectory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+        return values?.volumeAvailableCapacityForImportantUsage
     }
 
     var isMicrophoneAllowed: Bool {
@@ -80,7 +111,7 @@ final class StoryRecorder {
     }
 
     func start(kind: Kind = .story) async throws {
-        guard state == .idle else { return }
+        guard state == .idle else { throw RecorderError.busy }
         switch AVAudioApplication.shared.recordPermission {
         case .granted:
             break
@@ -90,6 +121,9 @@ final class StoryRecorder {
             }
         default:
             throw RecorderError.microphoneNotAllowed
+        }
+        if let free = Self.availableCapacity(), free < bytesNeededToStart {
+            throw RecorderError.notEnoughSpace
         }
 
         try AudioSessionController.activateForRecording()
@@ -107,6 +141,7 @@ final class StoryRecorder {
         ]
         let recorder = try AVAudioRecorder(url: url, settings: settings)
         recorder.isMeteringEnabled = true
+        recorder.delegate = events
         guard recorder.prepareToRecord(), recorder.record() else {
             AudioSessionController.finishRecording()
             throw RecorderError.couldNotStart
@@ -116,6 +151,8 @@ final class StoryRecorder {
         fileURL = url
         elapsed = 0
         level = 0
+        ticks = 0
+        hasAskedToStop = false
         state = .recording
         UIApplication.shared.isIdleTimerDisabled = true
         observeInterruptions()
@@ -141,9 +178,17 @@ final class StoryRecorder {
             throw RecorderError.nothingRecorded
         }
         state = .finishing
+        let measured = recorder.currentTime > 0 ? recorder.currentTime : elapsed
         recorder.stop()
         tearDown()
-        let finished = await AudioConverter.finalizeRecording(at: url)
+
+        // Keep converting for a moment even if the phone is locked right now.
+        let backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Finish recording")
+        let finished = await AudioConverter.finalizeRecording(at: url, measuredDuration: measured)
+        if backgroundTask != .invalid {
+            UIApplication.shared.endBackgroundTask(backgroundTask)
+        }
+
         state = .idle
         elapsed = 0
         level = 0
@@ -152,6 +197,12 @@ final class StoryRecorder {
 
     // MARK: - Private
 
+    private func askToStop(_ reason: StopReason) {
+        guard state == .recording || state == .interrupted, !hasAskedToStop else { return }
+        hasAskedToStop = true
+        onMustStop?(reason)
+    }
+
     private func tearDown() {
         meterTask?.cancel()
         meterTask = nil
@@ -159,6 +210,7 @@ final class StoryRecorder {
             NotificationCenter.default.removeObserver(interruptionObserver)
         }
         interruptionObserver = nil
+        recorder?.delegate = nil
         recorder = nil
         fileURL = nil
         UIApplication.shared.isIdleTimerDisabled = false
@@ -182,12 +234,22 @@ final class StoryRecorder {
             level = 0
             return
         }
+        if !recorder.isRecording {
+            // The system stopped the microphone (for example, the disk filled).
+            askToStop(.systemStopped)
+            return
+        }
         recorder.updateMeters()
         let power = Double(recorder.averagePower(forChannel: 0))
         level = max(0, min(1, (power + 50) / 50))
         elapsed = recorder.currentTime
+
+        ticks += 1
+        if ticks % 50 == 0, let free = Self.availableCapacity(), free < bytesNeededToContinue {
+            askToStop(.storageAlmostFull)
+        }
         if elapsed >= safetyLimit {
-            onReachedSafetyLimit?()
+            askToStop(.safetyLimit)
         }
     }
 
@@ -216,5 +278,22 @@ final class StoryRecorder {
         @unknown default:
             break
         }
+    }
+}
+
+/// Forwards recorder problems (encoding errors, an unexpected stop) to the
+/// main actor.
+final class RecorderEventRelay: NSObject, AVAudioRecorderDelegate {
+    var onProblem: (@MainActor () -> Void)?
+
+    func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
+        guard !flag else { return }
+        let handler = onProblem
+        Task { @MainActor in handler?() }
+    }
+
+    func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: Error?) {
+        let handler = onProblem
+        Task { @MainActor in handler?() }
     }
 }

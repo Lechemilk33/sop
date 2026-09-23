@@ -10,7 +10,7 @@ struct SavedStepView: View {
     @Environment(AppSettings.self) private var settings
 
     var body: some View {
-        ScreenScaffold(showsTopBar: false) {
+        ScreenScaffold {
             VStack(spacing: 18) {
                 Image(systemName: Symbols.saved)
                     .font(.system(size: 64, weight: .heavy))
@@ -27,19 +27,23 @@ struct SavedStepView: View {
                     .foregroundStyle(Palette.ink)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
+                if let stopNote {
+                    Text(stopNote)
+                        .appFont(.bodyBold)
+                        .foregroundStyle(Palette.softInk)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .frame(maxWidth: .infinity)
-            .padding(.top, 32)
+            .padding(.top, 8)
         } footer: {
-            VStack(spacing: Metrics.itemSpacing) {
+            VStack(spacing: Metrics.sectionSpacing) {
                 BigButton("Listen to it", systemImage: Symbols.play, tone: .marigold, size: .large) {
                     router.replaceTop(with: .player(.single(story)))
                 }
                 BigButton("Tell another story", systemImage: Symbols.tell, tone: .brick, size: .large) {
                     flow.startOver()
-                }
-                BigButton("Home", systemImage: Symbols.home, tone: .outline, size: .regular) {
-                    router.goHome()
                 }
             }
         }
@@ -55,6 +59,33 @@ struct SavedStepView: View {
             return "\(thanks) It's in My life, under \(chapter.name)."
         }
         return "\(thanks) It's in My life."
+    }
+
+    private var stopNote: String? {
+        switch flow.stopReason {
+        case .storageAlmostFull:
+            "The iPhone is almost full, so it stopped here. Ask your family to make some room."
+        case .systemStopped:
+            "The recording stopped here. Everything up to that point is saved."
+        case .safetyLimit:
+            "That was a long one, so it stopped here. You can tell more any time."
+        case nil:
+            nil
+        }
+    }
+}
+
+/// When a story couldn't be stored right away. It is safe on the iPhone and
+/// the app adds it by itself as soon as it can.
+struct KeptSafeView: View {
+    var body: some View {
+        ScreenScaffold {
+            SectionHeader(title: "Tell a story", systemImage: Symbols.tell, tone: .brick)
+            EmptyStateMessage(
+                title: "Your story is safe",
+                message: "It's kept on this iPhone and will appear in My life soon. Your family can find it in the Family area."
+            )
+        }
     }
 }
 

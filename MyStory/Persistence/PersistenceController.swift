@@ -1,3 +1,4 @@
+import CloudKit
 import Foundation
 import SwiftData
 
@@ -39,5 +40,23 @@ enum CloudSync {
     static var database: ModelConfiguration.CloudKitDatabase {
         guard isEnabled, let containerIdentifier else { return .none }
         return .private(containerIdentifier)
+    }
+
+    enum Status: Equatable {
+        case checking
+        /// Stories are being copied to iCloud.
+        case backingUp
+        /// Backup is set up, but this iPhone isn't signed in to iCloud (or
+        /// iCloud is off for My Story), so nothing is being copied.
+        case notSignedIn
+        /// This build doesn't use iCloud.
+        case thisPhoneOnly
+    }
+
+    /// Whether stories are actually reaching iCloud right now.
+    static func currentStatus() async -> Status {
+        guard isEnabled, let containerIdentifier else { return .thisPhoneOnly }
+        let account = try? await CKContainer(identifier: containerIdentifier).accountStatus()
+        return account == .available ? .backingUp : .notSignedIn
     }
 }

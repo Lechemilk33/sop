@@ -56,58 +56,75 @@ struct ImportRecordingsView: View {
         isImporting = true
         resultMessage = nil
         var imported = 0
-        let moreStories = Seeder.chapter(forKey: QuestionBank.moreStoriesKey, in: context)
-
         for url in urls {
-            let accessing = url.startAccessingSecurityScopedResource()
-            defer {
-                if accessing { url.stopAccessingSecurityScopedResource() }
-            }
-            let ext = url.pathExtension.lowercased()
-            let workFile = FileManager.default.temporaryDirectory
-                .appendingPathComponent(UUID().uuidString)
-                .appendingPathExtension(ext.isEmpty ? "audio" : ext)
-            do {
-                try FileManager.default.copyItem(at: url, to: workFile)
-                defer { try? FileManager.default.removeItem(at: workFile) }
-
-                var finalFile = workFile
-                var finalExtension = ext
-                if !["m4a", "mp3", "aac", "wav"].contains(ext) {
-                    let converted = workFile.deletingPathExtension().appendingPathExtension("m4a")
-                    try await AudioConverter.convertToM4A(from: workFile, to: converted)
-                    finalFile = converted
-                    finalExtension = "m4a"
-                }
-                defer {
-                    if finalFile != workFile { try? FileManager.default.removeItem(at: finalFile) }
-                }
-
-                let data = try Data(contentsOf: finalFile)
-                let duration = await AudioConverter.duration(of: finalFile)
-                let recordedAt = (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date()
-                let title = FileNaming.sanitized(url.deletingPathExtension().lastPathComponent, fallback: "A recording")
-
-                let story = Story(title: title, promptText: "", recordedAt: recordedAt)
-                context.insert(story)
-                story.audioData = data
-                story.audioFileExtension = finalExtension
-                story.duration = duration
-                story.isImported = true
-                story.needsReview = true
-                story.chapter = moreStories
-                try context.save()
-                transcription.enqueue(story)
+            if await importFile(url) {
                 imported += 1
-            } catch {
-                continue
             }
         }
-
         isImporting = false
         let failed = urls.count - imported
         resultMessage = failed == 0
             ? "Brought in \(imported == 1 ? "1 recording" : "\(imported) recordings")."
-            : "Brought in \(imported). \(failed) couldn't be read."
+            : "Brought in \(imported). \(failed) couldn't be read. The originals are untouched."
+    }
+
+    /// Brings in one recording. The original file is never changed.
+    private func importFile(_ url: URL) async -> Bool {
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessing { url.stopAccessingSecurityScopedResource() }
+        }
+        let ext = url.pathExtension.lowercased()
+        let workFile = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension(ext.isEmpty ? "audio" : ext)
+        let converted = workFile.deletingPathExtension().appendingPathExtension("m4a")
+        defer {
+            try? FileManager.default.removeItem(at: workFile)
+            try? FileManager.default.removeItem(at: converted)
+        }
+
+        do {
+            try FileManager.default.copyItem(at: url, to: workFile)
+        } catch {
+            return false
+        }
+
+        // Compressed formats are kept as they are. Everything else, including
+        // large .wav files, becomes .m4a; a .wav that won't convert is kept.
+        var finalFile = workFile
+        var finalExtension = ext
+        if !["m4a", "mp3", "aac"].contains(ext) {
+            do {
+                try await AudioConverter.convertToM4A(from: workFile, to: converted)
+                finalFile = converted
+                finalExtension = "m4a"
+            } catch {
+                guard ext == "wav" else { return false }
+            }
+        }
+
+        let duration = await AudioConverter.duration(of: finalFile)
+        guard duration > 0, let data = try? Data(contentsOf: finalFile) else { return false }
+        let fileDate = try? url.resourceValues(forKeys: [.creationDateKey]).creationDate
+        let recordedAt = await AudioConverter.recordingDate(of: workFile) ?? fileDate ?? Date()
+        let title = FileNaming.sanitized(url.deletingPathExtension().lastPathComponent, fallback: "A recording")
+
+        let story = Story(title: title, promptText: "", recordedAt: recordedAt)
+        context.insert(story)
+        story.audioData = data
+        story.audioFileExtension = finalExtension
+        story.duration = duration
+        story.isImported = true
+        story.needsReview = true
+        story.chapter = Seeder.chapter(forKey: QuestionBank.moreStoriesKey, in: context)
+        do {
+            try context.save()
+        } catch {
+            context.rollback()
+            return false
+        }
+        transcription.enqueue(story)
+        return true
     }
 }

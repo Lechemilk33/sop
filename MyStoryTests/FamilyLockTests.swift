@@ -4,9 +4,12 @@ import Testing
 
 @Suite("Family code")
 struct FamilyLockTests {
+    private func makeDefaults() -> UserDefaults {
+        UserDefaults(suiteName: "FamilyLockTests-\(UUID().uuidString)")!
+    }
+
     private func makeLock() -> FamilyLock {
-        let suite = "FamilyLockTests-\(UUID().uuidString)"
-        return FamilyLock(defaults: UserDefaults(suiteName: suite)!)
+        FamilyLock(defaults: makeDefaults())
     }
 
     @Test func startsWithoutACode() {
@@ -28,6 +31,26 @@ struct FamilyLockTests {
         lock.reset()
         #expect(!lock.isCodeSet)
         #expect(!lock.verify("1357"))
+    }
+
+    /// "Reset family code" in the iPhone's Settings app clears the code once,
+    /// then switches itself back off.
+    @Test func settingsSwitchResetsTheCodeOnce() {
+        let defaults = makeDefaults()
+        let lock = FamilyLock(defaults: defaults)
+        lock.setCode("2468")
+
+        lock.applyResetRequestIfNeeded()
+        #expect(lock.isCodeSet, "Nothing happens while the switch is off")
+
+        defaults.set(true, forKey: FamilyLock.resetRequestKey)
+        lock.applyResetRequestIfNeeded()
+        #expect(!lock.isCodeSet)
+        #expect(defaults.bool(forKey: FamilyLock.resetRequestKey) == false)
+
+        lock.setCode("1357")
+        lock.applyResetRequestIfNeeded()
+        #expect(lock.verify("1357"), "A new code survives the next launch")
     }
 
     @Test func validatesCodes() {

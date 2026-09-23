@@ -37,16 +37,19 @@ struct FamilyQuestionsView: View {
                         }
                     }
                 }
-                .onDelete(perform: deleteFamilyQuestions)
             } header: {
                 Text("Your questions")
+            } footer: {
+                if !familyQuestions.isEmpty {
+                    Text("To remove a question, open it and tap Delete. Stories already told for it are kept.")
+                }
             }
 
             Section {
                 ForEach(chapters) { chapter in
                     let builtIn = (chapter.questions ?? [])
                         .filter(\.isBuiltIn)
-                        .sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
+                        .sorted { (QuestionBank.position[$0.key] ?? .max) < (QuestionBank.position[$1.key] ?? .max) }
                     if !builtIn.isEmpty {
                         DisclosureGroup("\(chapter.name) (\(builtIn.filter { !$0.isHidden }.count) of \(builtIn.count))") {
                             ForEach(builtIn) { question in
@@ -71,7 +74,11 @@ struct FamilyQuestionsView: View {
         var parts: [String] = []
         if let name = question.askedBy?.name { parts.append("From \(name)") }
         if let chapter = question.chapter?.name { parts.append(chapter) }
-        parts.append(question.answerCount > 0 ? "Answered" : "Not asked yet")
+        if question.answerCount > 0 {
+            parts.append("Answered")
+        } else {
+            parts.append(question.timesShown > 0 ? "Asked, no story yet" : "Not asked yet")
+        }
         if question.recordedAudio != nil { parts.append("In your voice") }
         return parts.joined(separator: " \u{00B7} ")
     }
@@ -84,12 +91,5 @@ struct FamilyQuestionsView: View {
                 try? context.save()
             }
         )
-    }
-
-    private func deleteFamilyQuestions(at offsets: IndexSet) {
-        for index in offsets {
-            context.delete(familyQuestions[index])
-        }
-        try? context.save()
     }
 }

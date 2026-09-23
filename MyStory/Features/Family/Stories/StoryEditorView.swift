@@ -48,8 +48,8 @@ struct StoryEditorView: View {
             }
 
             Section {
+                // Every story lives in a chapter, so it can always be found in My life.
                 Picker("Chapter", selection: $chapter) {
-                    Text("No chapter").tag(Chapter?.none)
                     ForEach(chapters) { chapter in
                         Text(chapter.name).tag(Optional(chapter))
                     }
@@ -129,7 +129,7 @@ struct StoryEditorView: View {
         guard !hasLoaded else { return }
         hasLoaded = true
         title = story.title
-        chapter = story.chapter
+        chapter = story.chapter ?? chapters.first { $0.key == QuestionBank.moreStoriesKey }
         selectedPeople = Set((story.people ?? []).map(\.persistentModelID))
         yearText = story.year.map { String($0) } ?? ""
         transcript = story.transcript
@@ -137,7 +137,9 @@ struct StoryEditorView: View {
 
     private func save() {
         story.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        story.chapter = chapter
+        if let chapter {
+            story.chapter = chapter
+        }
         story.people = people.filter { selectedPeople.contains($0.persistentModelID) }
         story.year = Int(yearText.trimmingCharacters(in: .whitespaces))
         let words = transcript.trimmingCharacters(in: .whitespacesAndNewlines)

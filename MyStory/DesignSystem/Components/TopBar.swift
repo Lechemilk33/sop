@@ -41,6 +41,8 @@ struct NavPill: View {
     let accessibilityText: String
     let action: () -> Void
 
+    @Environment(\.colorSchemeContrast) private var contrast
+
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
         Button {
@@ -52,14 +54,14 @@ struct NavPill: View {
                     .accessibilityHidden(true)
                 Text(title)
                     .appFont(.compactButton)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
             }
             .foregroundStyle(Palette.ink)
             .padding(.horizontal, 18)
             .frame(minHeight: Metrics.navButtonHeight)
             .background(shape.fill(Palette.card))
-            .overlay(shape.strokeBorder(Palette.edge, lineWidth: Metrics.tappableBorder))
+            .overlay(shape.strokeBorder(contrast == .increased ? Palette.ink : Palette.edge, lineWidth: Metrics.tappableBorder))
             .contentShape(shape)
         }
         .buttonStyle(PressDimStyle())

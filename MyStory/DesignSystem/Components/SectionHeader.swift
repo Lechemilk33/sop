@@ -2,6 +2,7 @@ import SwiftUI
 
 /// A screen's title with its place's colored tile ("Tell a story" in brick,
 /// "My people" in blue, "My life" in marigold), so he always knows where he is.
+/// The tile has no outline, because a strong outline means "you can tap this".
 struct SectionHeader: View {
     let title: String
     let systemImage: String
@@ -15,7 +16,6 @@ struct SectionHeader: View {
                 .foregroundStyle(tone.foreground)
                 .frame(width: 58, height: 58)
                 .background(tile.fill(tone.fill))
-                .overlay(tile.strokeBorder(tone.rim, lineWidth: Metrics.tappableBorder))
                 .accessibilityHidden(true)
             Text(title)
                 .appFont(.screenTitle)

@@ -35,6 +35,15 @@ Until this is on, stories live only on his iPhone (and in any copies made with *
 3. Before the first TestFlight build, open the CloudKit Console and deploy the schema to production.
 4. On his iPhone, make sure he's signed in to iCloud. Recordings count against his iCloud storage (about 10 MB per 20 minutes), so iCloud+ 50 GB is a good idea.
 
+## If the family code is forgotten
+
+There's no Face ID fallback on purpose: it's his phone, so his face or passcode would open the family area.
+
+1. Open the iPhone's **Settings** app → **Apps** → **My Story**, and turn on **Reset family code**.
+2. Open My Story → **For family**. It asks you to choose a new code (type it twice).
+
+The switch turns itself off again, and no stories, people or photos are touched.
+
 ## How the code is organised
 
 ```
@@ -70,4 +79,5 @@ In Xcode: Product → Test (⌘U).
 2. He taps **I'm finished**. The file becomes a compact `.m4a` and is stored with the story.
 3. The words are written down on the iPhone (Apple's SpeechAnalyzer). Nothing is sent anywhere.
 4. If the app closes mid-story, the recording is rescued as a new story next time it opens.
-5. **Save a copy of everything** makes a folder with every original recording, the words in text files, the photos, `stories.json`, and `Open me.html`, which plays everything in any web browser.
+5. **Save a copy of everything** makes a folder with every original recording, the words in text files, the photos, the questions the family recorded, `stories.json`, and `Open me.html`, which plays everything in any web browser. Only the newest copy is kept on the iPhone, so move it somewhere safe (a Mac, a USB drive, iCloud Drive) each time.
+6. Nothing he taps deletes anything. Stories are only removed by the family, from the family area, after a confirmation.

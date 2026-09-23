@@ -69,17 +69,23 @@ final class QuestionReader {
         isReading = false
     }
 
-    /// The most natural installed voice for the current language.
+    /// A calm, natural voice in his own language and accent. Novelty voices
+    /// (like "Bubbles"), robotic Eloquence voices and Personal Voice are never
+    /// used. A downloaded Enhanced or Premium voice wins; otherwise it's the
+    /// iPhone's usual voice for the language.
     private static func bestVoice() -> AVSpeechSynthesisVoice? {
         let language = AVSpeechSynthesisVoice.currentLanguageCode()
-        let prefix = String(language.prefix(2))
-        let candidates = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix(prefix) }
-        let best = candidates.max { lhs, rhs in
-            if lhs.quality != rhs.quality { return lhs.quality.rawValue < rhs.quality.rawValue }
-            // Prefer the exact regional voice, e.g. en-US over en-GB.
-            return lhs.language != language && rhs.language == language
+        let natural = AVSpeechSynthesisVoice.speechVoices().filter { voice in
+            voice.language == language
+                && !voice.voiceTraits.contains(.isNoveltyVoice)
+                && !voice.voiceTraits.contains(.isPersonalVoice)
+                && !voice.identifier.lowercased().contains("eloquence")
         }
-        return best ?? AVSpeechSynthesisVoice(language: language)
+        let downloaded = natural.filter { $0.quality == .premium || $0.quality == .enhanced }
+        if let best = downloaded.max(by: { $0.quality.rawValue < $1.quality.rawValue }) {
+            return best
+        }
+        return AVSpeechSynthesisVoice(language: language)
     }
 }
 

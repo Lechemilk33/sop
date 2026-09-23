@@ -60,7 +60,15 @@ struct ArchiveHTMLTests {
                 ]),
                 .init(name: "Work", stories: []),
             ],
-            photos: []
+            photos: [],
+            questions: [
+                .init(
+                    text: "Tell me about the lake house.",
+                    askedBy: "Emily",
+                    audioPath: "Questions/Emily asks - Tell me about the lake house.m4a",
+                    photoPath: nil
+                ),
+            ]
         )
     }
 
@@ -72,6 +80,19 @@ struct ArchiveHTMLTests {
         #expect(html.contains("src=\"Stories/2026-09-12%20Her%20first%20bike%20ride.m4a\""))
         #expect(html.contains("My daughter"))
         #expect(html.contains("She was five."))
+    }
+
+    @Test func includesTheFamilysQuestions() {
+        let html = ArchiveHTML.render(manifest())
+        #expect(html.contains("Questions from the family"))
+        #expect(html.contains("Asked by Emily"))
+        #expect(html.contains("src=\"Questions/Emily%20asks%20-%20Tell%20me%20about%20the%20lake%20house.m4a\""))
+    }
+
+    @Test func leavesOutQuestionsWhenThereAreNone() {
+        var plain = manifest()
+        plain.questions = []
+        #expect(!ArchiveHTML.render(plain).contains("Questions from the family"))
     }
 
     @Test func skipsEmptyChapters() {
@@ -96,5 +117,35 @@ struct ArchiveHTMLTests {
         let decoded = try decoder.decode(ArchiveManifest.self, from: original.jsonData())
         #expect(decoded == original)
         #expect(decoded.storyCount == 1)
+        #expect(decoded.questions.count == 1)
+    }
+}
+
+@Suite("Recognizing recordings")
+struct AudioFileTypeTests {
+    private func data(_ header: String, padTo length: Int = 16) -> Data {
+        var bytes = Array(header.utf8)
+        bytes += Array(repeating: 0, count: max(0, length - bytes.count))
+        return Data(bytes)
+    }
+
+    @Test func recognizesCAF() {
+        #expect(AudioFileType.fileExtension(of: data("caff")) == "caf")
+    }
+
+    @Test func recognizesWAV() {
+        var bytes = Array("RIFF".utf8) + [0x24, 0, 0, 0] + Array("WAVE".utf8)
+        bytes += [0, 0, 0, 0]
+        #expect(AudioFileType.fileExtension(of: Data(bytes)) == "wav")
+    }
+
+    @Test func recognizesM4A() {
+        let bytes: [UInt8] = [0, 0, 0, 0x20] + Array("ftypM4A ".utf8)
+        #expect(AudioFileType.fileExtension(of: Data(bytes)) == "m4a")
+    }
+
+    @Test func fallsBackForAnythingElse() {
+        #expect(AudioFileType.fileExtension(of: Data(), fallback: "m4a") == "m4a")
+        #expect(AudioFileType.fileExtension(of: data("junk"), fallback: "aac") == "aac")
     }
 }

@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// The layout every one of his screens shares: the top bar pinned at the top,
-/// the content in the middle (it only scrolls when it doesn't fit, for example
-/// with very large text), and the main actions pinned at the bottom so they
-/// are always in the same place.
+/// The layout every one of his screens shares: the top bar pinned at the top
+/// (Home in the top-right corner), the content in the middle, and the main
+/// actions pinned at the bottom so they are always in the same place.
+///
+/// The content only becomes scrollable when it truly doesn't fit (for example
+/// with very large text). When it fits, there is nothing to swipe at all.
 struct ScreenScaffold<Content: View, Footer: View>: View {
     private let showsTopBar: Bool
     private let content: Content
@@ -27,16 +29,14 @@ struct ScreenScaffold<Content: View, Footer: View>: View {
                     .padding(.top, 8)
                     .padding(.bottom, 12)
             }
-            ScrollView {
-                VStack(alignment: .leading, spacing: Metrics.sectionSpacing) {
-                    content
+            ViewThatFits(in: .vertical) {
+                contentStack
+                    .frame(maxHeight: .infinity, alignment: .top)
+                ScrollView {
+                    contentStack
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, Metrics.screenPadding)
-                .padding(.top, showsTopBar ? 4 : 24)
-                .padding(.bottom, 24)
+                .scrollBounceBehavior(.basedOnSize)
             }
-            .scrollBounceBehavior(.basedOnSize)
             if !(footer is EmptyView) {
                 footer
                     .padding(.horizontal, Metrics.screenPadding)
@@ -45,6 +45,16 @@ struct ScreenScaffold<Content: View, Footer: View>: View {
             }
         }
         .background(Palette.paper.ignoresSafeArea())
+    }
+
+    private var contentStack: some View {
+        VStack(alignment: .leading, spacing: Metrics.sectionSpacing) {
+            content
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Metrics.screenPadding)
+        .padding(.top, showsTopBar ? 4 : 24)
+        .padding(.bottom, 24)
     }
 }
 

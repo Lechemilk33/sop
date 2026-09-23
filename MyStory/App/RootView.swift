@@ -6,7 +6,15 @@ struct RootView: View {
     @Environment(Router.self) private var router
     @Environment(AppSettings.self) private var settings
     @Environment(AppState.self) private var appState
+    @Environment(AppServices.self) private var services
+    @Environment(StoryRecorder.self) private var recorder
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+
+    @State private var backgroundedAt: Date?
+
+    /// After this long away, he comes back to Home rather than a deep screen.
+    private let returnHomeAfter: TimeInterval = 10 * 60
 
     var body: some View {
         @Bindable var appState = appState
@@ -16,6 +24,8 @@ struct RootView: View {
                 screen(for: router.current)
                     .id(router.currentID)
                     .transition(.opacity)
+                    // Never smaller than the iPhone's default text size on his screens.
+                    .dynamicTypeSize(.large...)
             } else {
                 FamilySetupView()
             }
@@ -23,6 +33,28 @@ struct RootView: View {
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: router.currentID)
         .fullScreenCover(isPresented: $appState.isFamilyAreaPresented) {
             FamilyAreaView()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            handle(phase)
+        }
+    }
+
+    private func handle(_ phase: ScenePhase) {
+        switch phase {
+        case .background:
+            backgroundedAt = Date()
+            // The family area never stays open for him to find later.
+            appState.isFamilyAreaPresented = false
+        case .active:
+            if let since = backgroundedAt,
+               Date().timeIntervalSince(since) > returnHomeAfter,
+               recorder.state == .idle {
+                router.goHome()
+            }
+            backgroundedAt = nil
+            Task { await services.didBecomeActive() }
+        default:
+            break
         }
     }
 

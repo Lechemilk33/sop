@@ -11,6 +11,8 @@ final class StoryPlayer {
     private(set) var duration: TimeInterval = 0
     /// The last story (or the whole list) has finished.
     private(set) var hasFinished = false
+    /// The story's recording couldn't be played.
+    private(set) var couldNotPlay = false
 
     var progress: Double {
         duration > 0 ? min(1, currentTime / duration) : 0
@@ -21,6 +23,7 @@ final class StoryPlayer {
     @ObservationIgnored private var player: AVAudioPlayer?
     private let relay = PlayerFinishRelay()
     @ObservationIgnored private var progressTask: Task<Void, Never>?
+    @ObservationIgnored private var interruptionObserver: NSObjectProtocol?
     /// Changes whenever playback is stopped or restarted, so a pending
     /// "next story" never starts after he has left the screen.
     @ObservationIgnored private var generation = 0
@@ -29,13 +32,28 @@ final class StoryPlayer {
         relay.onFinish = { [weak self] _ in
             self?.handleFinish()
         }
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] notification in
+            let typeValue = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            MainActor.assumeIsolated {
+                // A phone call pauses the story. He taps Play to carry on.
+                if typeValue == AVAudioSession.InterruptionType.began.rawValue {
+                    self?.pauseForInterruption()
+                }
+            }
+        }
     }
 
     /// Plays the stories in order, starting at `startIndex`.
     func play(_ stories: [Story], startingAt startIndex: Int = 0) {
         guard !stories.isEmpty else { return }
+        let startAt = min(max(0, startIndex), stories.count - 1)
+        stop()
         queue = stories
-        index = min(max(0, startIndex), stories.count - 1)
+        index = startAt
         start(queue[index])
     }
 
@@ -55,42 +73,70 @@ final class StoryPlayer {
                 hasFinished = false
             }
             AudioSessionController.activateForPlayback()
-            player.play()
-            isPlaying = true
-            startProgressUpdates()
+            if player.play() {
+                isPlaying = true
+                startProgressUpdates()
+            }
         }
     }
 
+    /// Stops and forgets everything, so no screen can show a story that the
+    /// family may since have deleted.
     func stop() {
         generation += 1
         stopProgressUpdates()
         player?.stop()
         player = nil
         isPlaying = false
+        currentStory = nil
+        queue = []
+        index = 0
+        currentTime = 0
+        duration = 0
+        hasFinished = false
+        couldNotPlay = false
     }
 
     // MARK: - Private
 
     private func start(_ story: Story) {
-        stop()
+        generation += 1
+        stopProgressUpdates()
+        player?.stop()
+        player = nil
         currentStory = story
         hasFinished = false
+        couldNotPlay = false
         currentTime = 0
         duration = story.duration
         guard let data = story.audioData, let newPlayer = try? AVAudioPlayer(data: data) else {
+            couldNotPlay = true
             hasFinished = true
+            isPlaying = false
             return
         }
         AudioSessionController.activateForPlayback()
         newPlayer.delegate = relay
         newPlayer.prepareToPlay()
-        newPlayer.play()
         player = newPlayer
         duration = newPlayer.duration
+        guard newPlayer.play() else {
+            couldNotPlay = true
+            hasFinished = true
+            isPlaying = false
+            return
+        }
         isPlaying = true
         story.playCount += 1
         story.lastPlayedAt = Date()
         startProgressUpdates()
+    }
+
+    private func pauseForInterruption() {
+        guard isPlaying else { return }
+        player?.pause()
+        isPlaying = false
+        stopProgressUpdates()
     }
 
     private func handleFinish() {

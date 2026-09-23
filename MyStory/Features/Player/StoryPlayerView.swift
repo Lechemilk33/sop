@@ -2,24 +2,31 @@ import SwiftData
 import SwiftUI
 
 /// Hearing a story: one big play/pause button, who's in it, and his words to
-/// read along. The story starts by itself, so one tap is all it takes.
+/// read along once the family has checked them. The story starts by itself,
+/// so one tap is all it takes.
 struct StoryPlayerView: View {
     let request: PlaybackRequest
 
     @Environment(\.modelContext) private var context
     @Environment(StoryPlayer.self) private var player
-    @Environment(Router.self) private var router
 
     @State private var hasStarted = false
 
     var body: some View {
         ScreenScaffold {
             if let story = player.currentStory {
-                StoryDetails(story: story) { person in
-                    router.push(.person(person))
+                StoryDetails(story: story)
+                if player.couldNotPlay {
+                    EmptyStateMessage(
+                        title: "This story can't play right now",
+                        message: "Your family can check it in the Family area."
+                    )
+                } else {
+                    PlayPauseControl()
                 }
-                PlayPauseControl()
-                if story.hasTranscript {
+                // Machine-written words can get names wrong, so he only sees
+                // them after the family has checked the story.
+                if story.hasTranscript, !story.needsReview {
                     InfoCard(spacing: 8) {
                         Text("In your words")
                             .appFont(.caption)
@@ -52,8 +59,7 @@ struct StoryPlayerView: View {
         guard player.currentStory != nil else { return false }
         switch request {
         case .surprise: return true
-        case .single: return player.hasFinished
-        case .queue: return player.hasFinished
+        case .single, .queue: return player.hasFinished
         }
     }
 
@@ -79,14 +85,13 @@ struct StoryPlayerView: View {
 /// Title, when he told it, the photo (if any) and who's in it.
 private struct StoryDetails: View {
     let story: Story
-    let onPerson: (Person) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             if let photo = story.photo {
                 StoredImage(cacheKey: photo.imageCacheKey, data: photo.imageData ?? photo.thumbnailData, placeholderSymbol: Symbols.photo)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 220)
+                    .frame(height: 200)
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             }
             VStack(alignment: .leading, spacing: 6) {
@@ -99,20 +104,8 @@ private struct StoryDetails: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
             }
-            let people = story.sortedPeople
-            if !people.isEmpty {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 10) {
-                        ForEach(people) { person in
-                            PersonChip(person: person) { onPerson(person) }
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(people) { person in
-                            PersonChip(person: person) { onPerson(person) }
-                        }
-                    }
-                }
+            ForEach(story.sortedPeople) { person in
+                PersonBadge(person: person)
             }
         }
     }

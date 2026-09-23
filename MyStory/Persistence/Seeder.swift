@@ -4,18 +4,24 @@ import SwiftData
 /// Adds the built-in chapters and questions, and cleans up duplicates that
 /// iCloud sync can create when two devices seed at the same time. Safe to run
 /// on every launch.
+///
+/// When there are duplicates, every device keeps the copy with the smallest
+/// uuid. Picking the same one everywhere matters: if two devices each kept a
+/// different copy, sync would delete both.
 @MainActor
 enum Seeder {
     static func run(in context: ModelContext) throws {
         let chaptersByKey = try ensureChapters(in: context)
         try ensureQuestions(in: context, chaptersByKey: chaptersByKey)
+        try fileLooseStories(in: context, chaptersByKey: chaptersByKey)
         if context.hasChanges {
             try context.save()
         }
     }
 
     private static func ensureChapters(in context: ModelContext) throws -> [String: Chapter] {
-        let existing = try context.fetch(FetchDescriptor<Chapter>(sortBy: [SortDescriptor(\.sortOrder)]))
+        let existing = try context.fetch(FetchDescriptor<Chapter>())
+            .sorted { $0.uuid.uuidString < $1.uuid.uuidString }
         var byKey: [String: Chapter] = [:]
         for chapter in existing where !chapter.key.isEmpty {
             if let keeper = byKey[chapter.key] {
@@ -42,7 +48,8 @@ enum Seeder {
     }
 
     private static func ensureQuestions(in context: ModelContext, chaptersByKey: [String: Chapter]) throws {
-        let existing = try context.fetch(FetchDescriptor<Question>(sortBy: [SortDescriptor(\.createdAt)]))
+        let existing = try context.fetch(FetchDescriptor<Question>())
+            .sorted { $0.uuid.uuidString < $1.uuid.uuidString }
         var byKey: [String: Question] = [:]
         for question in existing where question.isBuiltIn && !question.key.isEmpty {
             if let keeper = byKey[question.key] {
@@ -58,6 +65,17 @@ enum Seeder {
             let question = Question(text: seed.text, chapter: nil, key: seed.key, isBuiltIn: true, isFreeTalk: seed.isFreeTalk)
             context.insert(question)
             question.chapter = chaptersByKey[seed.chapterKey]
+        }
+    }
+
+    /// Every story belongs in a chapter so it can be found in My life. Any
+    /// that lost theirs (say, a chapter removed on another device) go to
+    /// More stories.
+    private static func fileLooseStories(in context: ModelContext, chaptersByKey: [String: Chapter]) throws {
+        guard let moreStories = chaptersByKey[QuestionBank.moreStoriesKey] else { return }
+        let loose = try context.fetch(FetchDescriptor<Story>(predicate: #Predicate { $0.chapter == nil }))
+        for story in loose {
+            story.chapter = moreStories
         }
     }
 

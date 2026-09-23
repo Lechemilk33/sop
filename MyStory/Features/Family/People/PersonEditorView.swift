@@ -10,6 +10,7 @@ struct PersonEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppSettings.self) private var settings
     @Environment(ClipPlayer.self) private var clipPlayer
+    @Environment(StoryRecorder.self) private var recorder
     @Query(sort: \Person.sortOrder) private var people: [Person]
 
     @State private var name = ""
@@ -113,7 +114,8 @@ struct PersonEditorView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save", action: save)
-                    .disabled(trimmedName.isEmpty || isLoadingPhoto)
+                    // Finish the hello recording first, so it's saved too.
+                    .disabled(trimmedName.isEmpty || isLoadingPhoto || recorder.state != .idle)
             }
         }
         .onAppear(perform: load)
@@ -128,7 +130,7 @@ struct PersonEditorView: View {
         ) {
             Button("Remove", role: .destructive, action: delete)
         } message: {
-            Text("Their stories stay. They just won't be linked to \(trimmedName) any more.")
+            Text("Their photo and their hello recording will be deleted. His stories stay; they just won't be linked to \(trimmedName) any more.")
         }
     }
 

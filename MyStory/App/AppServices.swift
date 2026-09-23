@@ -42,11 +42,23 @@ final class AppServices {
     func start() async {
         guard !hasStarted, let live else { return }
         hasStarted = true
+        familyLock.applyResetRequestIfNeeded()
         let context = live.container.mainContext
         try? Seeder.run(in: context)
         await RecordingRecovery.recoverUnfinishedRecordings(into: context, transcription: live.transcription)
         live.transcription.enqueueUnfinished()
         await live.transcription.refreshReadiness()
+    }
+
+    /// Each time the app comes back to the front: apply a family-code reset
+    /// from the Settings app, and rescue any story that couldn't be stored
+    /// earlier (never while something is being recorded).
+    func didBecomeActive() async {
+        guard hasStarted, let live else { return }
+        familyLock.applyResetRequestIfNeeded()
+        if recorder.state == .idle {
+            await RecordingRecovery.recoverUnfinishedRecordings(into: live.container.mainContext, transcription: live.transcription)
+        }
     }
 }
 

@@ -18,6 +18,7 @@ struct SaveCopyView: View {
                 Label("Every original recording", systemImage: "waveform")
                 Label("His words, typed out, in text files", systemImage: "doc.text")
                 Label("The photos, and who is in them", systemImage: "photo.on.rectangle")
+                Label("Questions the family recorded in their own voices", systemImage: "questionmark.bubble")
                 Label("\u{201C}Open me.html\u{201D}: plays everything in any web browser, no app needed", systemImage: "globe")
             } header: {
                 Text("What's in the copy")
@@ -68,7 +69,7 @@ struct SaveCopyView: View {
         progress = 0
         defer { isWorking = false }
         do {
-            let exporter = ArchiveExporter(context: context, ownerName: settings.displayName)
+            let exporter = ArchiveExporter(container: context.container, ownerName: settings.displayName)
             let result = try await exporter.makeArchive { value in
                 progress = value
             }
@@ -76,8 +77,11 @@ struct SaveCopyView: View {
             settings.lastCopySavedAt = Date()
         } catch ArchiveExporter.ExportError.nothingToSave {
             problem = "There's nothing to save yet."
+        } catch ArchiveExporter.ExportError.notEnoughSpace(let needed) {
+            let amount = ByteCountFormatter.string(fromByteCount: needed, countStyle: .file)
+            problem = "The iPhone needs about \(amount) free to make the copy. Free up space in Settings \u{2192} General \u{2192} iPhone Storage, then try again. His stories are safe either way."
         } catch {
-            problem = "The copy couldn't be made. Check there's enough free space on the iPhone and try again."
+            problem = "The copy couldn't be made. Please try again. His stories are safe either way."
         }
     }
 }

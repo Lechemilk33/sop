@@ -36,11 +36,20 @@ struct ArchiveManifest: Codable, Equatable {
         var year: Int?
     }
 
+    /// A question the family wrote, or recorded in their own voice.
+    struct QuestionEntry: Codable, Equatable {
+        var text: String
+        var askedBy: String?
+        var audioPath: String?
+        var photoPath: String?
+    }
+
     var ownerName: String
     var createdAt: Date
     var people: [PersonEntry]
     var chapters: [ChapterEntry]
     var photos: [PhotoEntry]
+    var questions: [QuestionEntry] = []
 
     var storyCount: Int {
         chapters.reduce(0) { $0 + $1.stories.count }

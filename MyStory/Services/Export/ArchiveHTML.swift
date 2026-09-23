@@ -110,6 +110,23 @@ enum ArchiveHTML {
             html += "</div>\n"
         }
 
+        if !manifest.questions.isEmpty {
+            html += "<h2><span class=\"dot green\"></span>Questions from the family</h2>\n"
+            for question in manifest.questions {
+                html += "<section class=\"card question\">\n<p class=\"ask\">\u{201C}\(escape(question.text))\u{201D}</p>\n"
+                if let asker = question.askedBy, !asker.isEmpty {
+                    html += "<p class=\"meta\">Asked by \(escape(asker))</p>\n"
+                }
+                if let photo = question.photoPath {
+                    html += "<img class=\"story-photo\" src=\"\(url(photo))\" alt=\"\">\n"
+                }
+                if let audio = question.audioPath {
+                    html += "<audio controls preload=\"none\" src=\"\(url(audio))\"></audio>\n"
+                }
+                html += "</section>\n"
+            }
+        }
+
         html += """
         <footer>Made with My Story. Every recording is also in the Stories folder as its own file, with the words in a text file beside it.</footer>
         </main>
@@ -155,7 +172,7 @@ enum ArchiveHTML {
     }
 
     private static let styles = """
-    :root{--paper:#FBF5EA;--ink:#26190F;--soft:#574636;--hair:#DCCBB0;--brick:#9F3118;--blue:#1B4683;--gold:#F2B535;--goldrim:#7A5410}
+    :root{--paper:#FBF5EA;--ink:#26190F;--soft:#574636;--hair:#DCCBB0;--brick:#9F3118;--blue:#122F5C;--green:#276336;--gold:#F2B535;--goldrim:#7A5410}
     *{box-sizing:border-box}
     body{margin:0;background:var(--paper);color:var(--ink);font-family:'Atkinson Hyperlegible Next',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:20px;line-height:1.5}
     main{max-width:880px;margin:0 auto;padding:36px 20px 80px}
@@ -167,12 +184,14 @@ enum ArchiveHTML {
     .dot.gold{background:var(--gold);border:3px solid var(--goldrim)}
     .dot.blue{background:var(--blue)}
     .dot.brick{background:var(--brick)}
+    .dot.green{background:var(--green)}
     .card{background:#fff;border:2px solid var(--hair);border-radius:22px;padding:18px}
     .people{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
     .person img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:16px;background:#EADCC6;margin-bottom:10px}
     .person ul{margin:8px 0 12px;padding-left:22px}
     .rel{color:var(--soft);font-weight:700;margin:0}
-    .story{margin:0 0 16px}
+    .story,.question{margin:0 0 16px}
+    .ask{font-size:23px;font-weight:700;margin:0 0 6px}
     .meta{color:var(--soft);font-size:17px;margin:0 0 12px}
     .prompt{font-style:normal;color:var(--soft);margin:0 0 12px}
     .story-photo{width:100%;max-height:420px;object-fit:cover;border-radius:16px;margin:0 0 12px}
