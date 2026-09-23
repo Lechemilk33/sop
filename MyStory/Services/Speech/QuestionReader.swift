@@ -91,7 +91,8 @@ final class QuestionReader {
 
 /// Forwards "finished speaking" from AVSpeechSynthesizer to the main actor.
 final class SpeechFinishRelay: NSObject, AVSpeechSynthesizerDelegate {
-    var onFinish: (@MainActor (ObjectIdentifier) -> Void)?
+    /// Set once on the main actor when the reader is created, then only read.
+    nonisolated(unsafe) var onFinish: (@MainActor (ObjectIdentifier) -> Void)?
 
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         notify(ObjectIdentifier(utterance))

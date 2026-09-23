@@ -23,7 +23,9 @@ final class AppServices {
     let live: Live?
     let startupError: String?
 
-    private var hasStarted = false
+    @ObservationIgnored private var hasStarted = false
+    /// Two rescue passes at once could both pick up the same file.
+    @ObservationIgnored private var isRecovering = false
 
     init(inMemory: Bool = false) {
         settings = AppSettings()
@@ -45,7 +47,7 @@ final class AppServices {
         familyLock.applyResetRequestIfNeeded()
         let context = live.container.mainContext
         try? Seeder.run(in: context)
-        await RecordingRecovery.recoverUnfinishedRecordings(into: context, transcription: live.transcription)
+        await recoverRecordings(live)
         live.transcription.enqueueUnfinished()
         await live.transcription.refreshReadiness()
     }
@@ -57,8 +59,15 @@ final class AppServices {
         guard hasStarted, let live else { return }
         familyLock.applyResetRequestIfNeeded()
         if recorder.state == .idle {
-            await RecordingRecovery.recoverUnfinishedRecordings(into: live.container.mainContext, transcription: live.transcription)
+            await recoverRecordings(live)
         }
+    }
+
+    private func recoverRecordings(_ live: Live) async {
+        guard !isRecovering else { return }
+        isRecovering = true
+        defer { isRecovering = false }
+        await RecordingRecovery.recoverUnfinishedRecordings(into: live.container.mainContext, transcription: live.transcription)
     }
 }
 

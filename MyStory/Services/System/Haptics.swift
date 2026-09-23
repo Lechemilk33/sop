@@ -5,14 +5,21 @@ import UIKit
 /// and every save is felt as well as seen.
 @MainActor
 enum Haptics {
-    private static let impact = UIImpactFeedbackGenerator(style: .light)
-    private static let notification = UINotificationFeedbackGenerator()
-
     static func tap() {
-        impact.impactOccurred()
+        guard let window else { return }
+        UIImpactFeedbackGenerator(style: .light, view: window).impactOccurred()
     }
 
     static func success() {
-        notification.notificationOccurred(.success)
+        guard let window else { return }
+        UINotificationFeedbackGenerator(view: window).notificationOccurred(.success)
+    }
+
+    /// Feedback generators belong to a view; the app's window will do.
+    private static var window: UIWindow? {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }?
+            .keyWindow
     }
 }

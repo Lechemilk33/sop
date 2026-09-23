@@ -284,7 +284,8 @@ final class StoryRecorder {
 /// Forwards recorder problems (encoding errors, an unexpected stop) to the
 /// main actor.
 final class RecorderEventRelay: NSObject, AVAudioRecorderDelegate {
-    var onProblem: (@MainActor () -> Void)?
+    /// Set once on the main actor before recording starts, then only read.
+    nonisolated(unsafe) var onProblem: (@MainActor () -> Void)?
 
     func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
         guard !flag else { return }
