@@ -4,6 +4,8 @@ A private iPhone app where Dave (a stand-in name) records his life stories in hi
 
 Clickable mockup of every screen: https://claude.ai/artifact/GC9B2p2PyC9YXgTfrBk7VT (private until shared from its Share menu).
 
+Status: Phase 1 is built. The app lives in `MyStory/`, and the README explains how to run it and put it on his iPhone.
+
 ## Who it's for
 
 - Dave, 55, recently diagnosed with early-onset Alzheimer's, early stage. Uses an iPhone.

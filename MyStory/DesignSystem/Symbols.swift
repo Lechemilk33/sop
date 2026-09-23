@@ -1,0 +1,25 @@
+/// SF Symbol names used in the app, in one place so every screen uses the same
+/// icon for the same idea. Every icon is always shown next to a word.
+enum Symbols {
+    static let tell = "mic.fill"
+    static let people = "person.2.fill"
+    static let life = "book.fill"
+    static let home = "house.fill"
+    static let back = "chevron.left"
+    static let forward = "chevron.right"
+    static let play = "play.fill"
+    static let pause = "pause.fill"
+    static let playAgain = "arrow.counterclockwise"
+    static let stop = "stop.fill"
+    static let read = "speaker.wave.2.fill"
+    static let differentQuestion = "arrow.clockwise"
+    static let shuffle = "shuffle"
+    static let saved = "checkmark"
+    static let lock = "lock.fill"
+    static let hello = "speaker.wave.2.fill"
+    static let askedBy = "text.bubble.fill"
+    static let photo = "photo"
+    static let person = "person.fill"
+    static let deleteDigit = "delete.left.fill"
+    static let microphoneOff = "mic.slash.fill"
+}
