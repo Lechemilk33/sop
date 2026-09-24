@@ -61,8 +61,8 @@ struct WholePhoto: View {
 /// Images are decoded at the size they're shown, not at full size.
 @MainActor
 enum ImageCache {
-    static let thumbnailPixels: CGFloat = 720
-    static let largePixels: CGFloat = 1600
+    nonisolated static let thumbnailPixels: CGFloat = 720
+    nonisolated static let largePixels: CGFloat = 1600
 
     private static let cache: NSCache<NSString, UIImage> = {
         let cache = NSCache<NSString, UIImage>()
