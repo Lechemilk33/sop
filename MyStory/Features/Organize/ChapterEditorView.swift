@@ -1,8 +1,9 @@
 import SwiftData
 import SwiftUI
 
-/// Making a new chapter, or changing a chapter's name and picture. A new
-/// chapter made while sorting a story takes that story straight away.
+/// Making a new chapter, or changing the name and picture of a chapter he
+/// made. A new chapter made while sorting a story takes that story straight
+/// away, and he goes back to "About this story".
 struct ChapterEditorView: View {
     let chapter: Chapter?
     let storyToFile: Story?
@@ -11,25 +12,28 @@ struct ChapterEditorView: View {
     @Environment(\.modelContext) private var context
 
     @State private var name = ""
-    @State private var symbol = Symbols.chapterChoices[0].symbol
+    @State private var symbol = Symbols.simpleChapterChoices[0].symbol
     @State private var hasLoaded = false
+    @State private var note: String?
     @FocusState private var isTyping: Bool
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top), count: 3)
 
     var body: some View {
-        let cleaned = StoryTitles.cleaned(name)
         ScreenScaffold {
             SectionHeader(
                 title: chapter == nil ? "A new chapter" : "Change this chapter",
                 systemImage: symbol,
                 tone: .marigold
             )
-            Text("What's it called?")
+            Text("What would you like to call it?")
                 .appFont(.question)
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            TextEntryField(placeholder: "For example: Fishing trips", text: $name, isFocused: $isTyping)
+            if let note {
+                Instruction(note)
+            }
+            TextEntryField(example: "For example: Fishing trips", text: $name, isFocused: $isTyping)
             Text("Choose a picture for it")
                 .appFont(.subtitle)
                 .foregroundStyle(Palette.ink)
@@ -44,14 +48,13 @@ struct ChapterEditorView: View {
             }
         } footer: {
             BigButton(
-                cleaned.isEmpty ? "Type a name first" : (chapter == nil ? "Make the chapter" : "Save the chapter"),
+                chapter == nil ? "Make the chapter" : "Save the chapter",
                 systemImage: Symbols.done,
                 tone: .marigold,
                 size: .large
             ) {
                 save()
             }
-            .disabled(cleaned.isEmpty)
         }
         .onAppear(perform: load)
     }
@@ -59,9 +62,10 @@ struct ChapterEditorView: View {
     /// The pictures to choose from, including the chapter's own if it has a
     /// different one.
     private var choices: [(symbol: String, name: String)] {
-        let all = Symbols.chapterChoices
-        guard let current = chapter?.symbolName, !all.contains(where: { $0.symbol == current }) else { return all }
-        return [(symbol: current, name: "As it was")] + all
+        let simple = Symbols.simpleChapterChoices
+        guard let current = chapter?.symbolName, !simple.contains(where: { $0.symbol == current }) else { return simple }
+        let name = Symbols.chapterChoices.first { $0.symbol == current }?.name ?? "As it was"
+        return [(symbol: current, name: name)] + simple
     }
 
     private func load() {
@@ -75,20 +79,31 @@ struct ChapterEditorView: View {
 
     private func save() {
         let cleaned = StoryTitles.cleaned(name)
-        guard !cleaned.isEmpty else { return }
+        guard !cleaned.isEmpty else {
+            // Nothing is greyed out: the button shows him what's missing.
+            note = "Type a name for the chapter first."
+            isTyping = true
+            return
+        }
         isTyping = false
         if let chapter {
             chapter.name = cleaned
             chapter.symbolName = symbol
-        } else {
-            let existing = (try? context.fetch(FetchDescriptor<Chapter>())) ?? []
-            let nextOrder = (existing.map(\.sortOrder).max() ?? 0) + 1
-            let newChapter = Chapter(key: "", name: cleaned, symbolName: symbol, sortOrder: nextOrder, askPriority: 50)
-            context.insert(newChapter)
-            storyToFile?.chapter = newChapter
+            try? context.save()
+            router.pop()
+            return
         }
-        try? context.save()
-        router.pop()
+        let newChapter = Chapter(key: "", name: cleaned, symbolName: symbol, sortOrder: 0, askPriority: 50)
+        ChapterOrdering.add(newChapter, in: context)
+        if let story = context.existing(storyToFile) {
+            story.chapter = newChapter
+            try? context.save()
+            // Past "Choose a chapter", back to "About this story".
+            router.pop(2)
+        } else {
+            try? context.save()
+            router.pop()
+        }
     }
 }
 
@@ -110,11 +125,13 @@ private struct PictureChoice: View {
                     .accessibilityHidden(true)
                 Text(name)
                     .appFont(.caption)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .foregroundStyle(Palette.ink)
-            .frame(maxWidth: .infinity, minHeight: 92)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: 96)
             .background(shape.fill(isSelected ? Palette.marigold : Palette.card))
             .overlay(
                 shape.strokeBorder(

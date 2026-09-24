@@ -5,7 +5,7 @@ enum Symbols {
     static let ownStory = "quote.bubble.fill"
     static let question = "questionmark.bubble.fill"
     static let people = "person.2.fill"
-    static let stories = "books.vertical.fill"
+    static let stories = "book.fill"
     static let allStories = "list.bullet"
     static let home = "house.fill"
     static let back = "chevron.left"
@@ -34,22 +34,26 @@ enum Symbols {
     static let deleteDigit = "delete.left.fill"
     static let microphoneOff = "mic.slash.fill"
 
-    /// Pictures he or the family can give a chapter, each with a word.
-    static let chapterChoices: [(symbol: String, name: String)] = [
+    /// The few pictures he chooses from when he makes a chapter.
+    static let simpleChapterChoices: [(symbol: String, name: String)] = [
         ("book.closed.fill", "Book"),
-        ("heart.fill", "Love"),
-        ("house.fill", "Home"),
         ("figure.2.and.child.holdinghands", "Family"),
         ("briefcase.fill", "Work"),
-        ("hammer.fill", "Tools"),
         ("airplane", "Travel"),
+        ("tree.fill", "Outdoors"),
+        ("music.note", "Music"),
+    ]
+
+    /// Every picture a chapter can have; the family chooses from these.
+    static let chapterChoices: [(symbol: String, name: String)] = simpleChapterChoices + [
+        ("heart.fill", "Love"),
+        ("hammer.fill", "Tools"),
         ("car.fill", "Cars"),
         ("sailboat.fill", "Boats"),
-        ("tree.fill", "Outdoors"),
         ("leaf.fill", "Garden"),
-        ("music.note", "Music"),
         ("sportscourt.fill", "Sports"),
         ("fork.knife", "Food"),
         ("pawprint.fill", "Pets"),
+        ("star.fill", "Star"),
     ]
 }

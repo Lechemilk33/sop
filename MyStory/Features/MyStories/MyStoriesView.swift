@@ -42,7 +42,7 @@ struct MyStoriesView: View {
                     .foregroundStyle(Palette.ink)
                     .accessibilityAddTraits(.isHeader)
                     .padding(.top, 4)
-                VStack(spacing: Metrics.itemSpacing) {
+                LazyVStack(spacing: Metrics.itemSpacing) {
                     ForEach(shown) { chapter in
                         ChapterRow(chapter: chapter) {
                             router.push(.chapter(chapter))

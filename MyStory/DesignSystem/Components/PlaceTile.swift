@@ -1,7 +1,10 @@
 import SwiftUI
 
-/// One of the big choices on Home: a frosted glass tile with the place's
-/// medallion, a name, a few words about what's inside, and a chevron.
+/// One of the big choices on Home: a frosted glass tile with a solid stripe
+/// of the place's color down its side, the place's medallion, a name, a few
+/// words about what's inside, and a chevron. The stripes and medallions
+/// (brick, navy, gold) differ in lightness, so the three places look
+/// different at a glance even when colors are hard to tell apart.
 struct PlaceTile: View {
     let title: String
     let subtitle: String
@@ -10,12 +13,15 @@ struct PlaceTile: View {
     var minHeight: CGFloat = Metrics.heroButtonHeight
     let action: () -> Void
 
+    @Environment(\.colorSchemeContrast) private var contrast
+
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Metrics.heroCornerRadius, style: .continuous)
         Button {
             TapGuard.perform(action)
         } label: {
             HStack(spacing: 18) {
-                Medallion(systemImage: systemImage, tone: tone, size: 64)
+                Medallion(systemImage: systemImage, tone: tone, size: Metrics.tileMedallion)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
                         .appFont(.tileTitle)
@@ -30,14 +36,26 @@ struct PlaceTile: View {
                 Spacer(minLength: 8)
                 RowChevron()
             }
+            .padding(.leading, Metrics.tileStripe + 18)
+            .padding(.trailing, 22)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
+            .background(alignment: .leading) {
+                Rectangle()
+                    .fill(tone.accent)
+                    .frame(width: Metrics.tileStripe)
+            }
+            .clipShape(shape)
+            .glassEffect(Glass.regular.tint(tone.tint.opacity(0.6)), in: shape)
+            .overlay(
+                shape.strokeBorder(
+                    contrast == .increased ? Palette.ink : Palette.edge,
+                    lineWidth: contrast == .increased ? Metrics.increasedContrastBorder : Metrics.tappableBorder
+                )
+            )
+            .contentShape(shape)
         }
-        .buttonStyle(GlassActionStyle(
-            tone: .outline,
-            minHeight: minHeight,
-            cornerRadius: Metrics.heroCornerRadius,
-            alignment: .leading,
-            wash: tone.tint.opacity(0.55)
-        ))
+        .buttonStyle(PressDimStyle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("\(title). \(subtitle)"))
         .accessibilityAddTraits(.isButton)

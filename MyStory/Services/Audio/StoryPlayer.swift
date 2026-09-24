@@ -173,14 +173,15 @@ final class StoryPlayer {
             hasFinished = true
             return
         }
-        index += 1
-        let next = queue[index]
+        let nextIndex = index + 1
         let token = generation
         Task { [weak self] in
             // A short, calm pause between stories.
             try? await Task.sleep(for: .seconds(1.5))
             guard let self, self.generation == token else { return }
-            self.start(next)
+            // Moved on only now, so a pause in between never skips a story.
+            self.index = nextIndex
+            self.start(self.queue[nextIndex])
         }
     }
 

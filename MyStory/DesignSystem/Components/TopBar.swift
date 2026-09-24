@@ -61,7 +61,7 @@ struct NavPill: View {
             .padding(.horizontal, 20)
             .frame(minHeight: Metrics.navButtonHeight)
             .contentShape(Capsule())
-            .glassEffect(.regular.interactive(), in: Capsule())
+            .glassEffect(.regular, in: Capsule())
             .overlay(
                 Capsule().strokeBorder(
                     contrast == .increased ? Palette.ink : Palette.edge,

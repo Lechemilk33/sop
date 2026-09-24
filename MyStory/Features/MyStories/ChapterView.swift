@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// One chapter: "Play them all", then each story, then telling a new one or
-/// changing the chapter's name and picture.
+/// One chapter: "Play them all", then each story, then telling a new one or,
+/// for a chapter he made, changing its name and picture.
 struct ChapterView: View {
     let chapter: Chapter
 
@@ -18,8 +18,12 @@ struct ChapterView: View {
             BigButton("Tell a story for this chapter", systemImage: Symbols.tell, tone: .brick, size: .regular) {
                 router.push(.tellStory(.chapter(chapter)))
             }
-            BigButton("Change this chapter", systemImage: Symbols.rename, tone: .outline, size: .compact) {
-                router.push(.editChapter(chapter))
+            // Only chapters he or the family made; the built-in ones keep
+            // their names, because some of them decide where stories go.
+            if chapter.key.isEmpty {
+                BigButton("Change this chapter", systemImage: Symbols.rename, tone: .outline, size: .compact) {
+                    router.push(.editChapter(chapter))
+                }
             }
         }
     }
@@ -66,7 +70,7 @@ struct StoryListScreen<Extra: View>: View {
                 ) {
                     router.push(.player(.queue(stories, startIndex: 0)))
                 }
-                VStack(spacing: Metrics.itemSpacing) {
+                LazyVStack(spacing: Metrics.itemSpacing) {
                     ForEach(stories) { story in
                         StoryRow(story: story) {
                             router.push(.player(.single(story)))

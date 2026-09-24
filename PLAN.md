@@ -51,17 +51,18 @@ Calm, warm and grown-up, like a good photo album: warm neutrals, one deep color 
 | Paper → Paper deep | `#F5F1EB` → `#E8E1D7` | Background gradient, with a faint glow of the place's color | ink 15.4:1 / 13.4:1 |
 | Card | `#FFFFFF` | Content cards and rows | |
 | Ink | `#1C1A17` | Main text, "I'm finished" | |
-| Soft ink | `#443E39` | Second line of text | 8.1:1 on paper deep, 7.2:1 on the glows |
-| Edge | `#82786C` | Edge of anything tappable | 3.3:1 on paper deep, 4.3:1 on white |
+| Soft ink | `#443E39` | Second line of text | 8.1:1 on paper deep, 7.2:1 on the glow |
+| Edge | `#766B5F` | Edge of anything tappable | 4.0:1 on paper deep, 5.2:1 on white |
 | Hairline | `#DCD4C9` | Soft edge of things you can't tap | |
-| Brick | `#9A331C` | Tell a story | white text 7.3:1 |
-| Blue | `#1F3E6E` | My people | white text 10.6:1 |
+| Brick | `#8E2F1A` | Tell a story | white text 8.2:1 |
+| Blue | `#122F5C` | My people | white text 13.2:1 |
 | Marigold | `#E0A33A` | My stories, and anything you listen to | ink text 7.8:1 |
 | Marigold rim | `#6E4B0E` | Edge of gold shapes, text on gold tints | 6.0:1 on paper deep |
-| Green | `#265E36` | Saved, chosen | white text 7.7:1 |
+| Green | `#215A33` | Saved, chosen | white text 8.2:1 |
 
 - Type: the iPhone's own font (San Francisco), scaled with Dynamic Type via `UIFontMetrics` and the family's text size. The family can switch to Atkinson Hyperlegible Next ("Extra-clear letters"), made by the Braille Institute for readers with low vision.
-- Glass: `glassEffect(.regular.interactive())` for quiet buttons and Home's tiles, tinted glass over solid color for main actions, 2 pt edges (3 pt with Increase Contrast).
+- Glass: `glassEffect(.regular)` for quiet buttons and Home's tiles, tinted glass over solid color for main actions, 2 pt edges (3 pt with Increase Contrast). Not `.interactive()`, so nothing bounces when pressed. White words sit at 8:1 on the solid color, so they stay above 7:1 where the glass lightens it.
+- Home's tiles each carry a solid stripe and a large medallion in the place's color (brick L*34, navy L*20, gold L*71), so the places differ in lightness at a glance.
 - Icons: SF Symbols, always paired with a word, in colored medallions that never look tappable on their own.
 - Always light mode (`.preferredColorScheme(.light)`). Honor Increase Contrast, Bold Text, Reduce Motion and Reduce Transparency.
 
@@ -70,15 +71,16 @@ Calm, warm and grown-up, like a good photo album: warm neutrals, one deep color 
 His side (see the mockup):
 
 - **Home**: "Good morning, Dave" and the date. Three glass tiles: Tell a story, My people, My stories. A small "For family" button.
-- **Tell a story**: two choices, "My own story" or "Answer a question". His own story can be given any name (typed, or said with the keyboard's microphone), or none. A question shows in big type with "Read it to me", "Start talking" and "A different question". Then the listening screen: the story's name or the question stays visible, a big "I'm finished" button, and no Home button, so a stray tap can't cut a story short. Then "Saved. “The summer at the lake” is in My stories, under More stories." with Listen to it, Name it and add people, and Tell another story.
-- **About this story** (from Saved or while listening): its name, who's in it, its chapter and its photo, each a tap away from changing. He can make a new chapter with a name and a picture.
+- **Tell a story**: two choices, "My own story" or "Answer a question". His own story can be given any name (typed, or said with the keyboard's microphone), or none. A question shows in big type with "Read it to me", "Start talking" and "A different question". Then the listening screen: the story's name or the question stays visible, a big "I'm finished" button, and no Home button, so a stray tap can't cut a story short. Then "Saved. “The summer at the lake” is in My stories, under More stories." with Listen to it, Name it and add people (a name, then the people, one screen each, back to Saved), and Tell another story.
+- **About this story** (while listening): its name, who's in it, its chapter and its photo, each a tap away from changing, from the family's photos. He can make a new chapter with a name and one of six pictures.
 - **My people**: a grid of photos framed around each face, with names and "my daughter", "my brother". A person's page: a big framed photo, name, relationship, two or three facts, "Hear Emily" (a voice message she recorded), "Stories with Emily", and "Tell a story about Emily".
-- **My stories**: "Play me a story" (one tap, no choices), All my stories, then the chapters, including ones he made. A chapter: "Play them all", its stories, and changing its name or picture. A story: the whole photo, big play/pause, who's in it, his words to read along, and About this story.
+- **My stories**: "Play me a story" (one tap, no choices), All my stories, then the chapters, including ones he made. A chapter: "Play them all", its stories, and (for chapters he made) changing its name or picture. A story: its name, big play/pause right under it, who's in it, the whole photo, his words to read along, and About this story.
 
 Family side, behind a 4-digit code:
 
 - Add a person: photo (from Photos or the camera, framed around their face automatically, with Move and Zoom to adjust), name, relationship, a few facts, and a recorded hello. Tap the photo to change it later.
-- Chapters: rename any chapter or change its picture; delete ones he or the family made (their stories move to More stories).
+- Chapters: add, reorder, rename or change the picture of any chapter (More stories and My thoughts keep their names); delete ones he or the family made (their stories move to More stories).
+- A story's photo: choose one from the iPhone's photos in the story editor. It joins the family's photos, which he can choose from himself.
 - Add a question: typed, or recorded in their own voice, tagged "Emily asked this one".
 - Add photos, with who's in them and roughly when.
 - Bring in old recordings (Voice Memos or files).

@@ -105,8 +105,8 @@ private struct FamilyEntryButton: View {
             .padding(.horizontal, 26)
             .frame(minHeight: Metrics.minimumTarget)
             .contentShape(Capsule())
-            .glassEffect(.regular.interactive(), in: Capsule())
-            .overlay(Capsule().strokeBorder(Palette.edge, lineWidth: Metrics.staticBorder))
+            .glassEffect(.regular, in: Capsule())
+            .overlay(Capsule().strokeBorder(Palette.edge, lineWidth: Metrics.tappableBorder))
         }
         .buttonStyle(PressDimStyle())
         .frame(maxWidth: .infinity)

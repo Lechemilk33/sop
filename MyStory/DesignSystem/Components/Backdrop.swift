@@ -1,10 +1,10 @@
 import SwiftUI
 
 /// The calm background behind his screens: a soft warm gradient with a faint
-/// glow of the place's color in the corners, so each place feels a little
-/// different and the glass has something gentle to catch. There is no
-/// pattern and nothing moves. The glows are faint enough that soft text over
-/// them still has 7:1 contrast.
+/// glow of the place's color in the top corner, so the glass has something
+/// gentle to catch. There is no pattern and nothing moves. The glow is faint
+/// enough that soft text and button edges over it keep their contrast, and
+/// it stays away from the buttons at the bottom.
 struct Backdrop: View {
     var tone: Tone?
 
@@ -13,14 +13,8 @@ struct Backdrop: View {
             LinearGradient(colors: [Palette.paper, Palette.paperDeep], startPoint: .top, endPoint: .bottom)
             if let tone {
                 RadialGradient(
-                    colors: [tone.accent.opacity(0.08), .clear],
+                    colors: [tone.accent.opacity(0.07), .clear],
                     center: .topTrailing,
-                    startRadius: 0,
-                    endRadius: 460
-                )
-                RadialGradient(
-                    colors: [tone.accent.opacity(0.06), .clear],
-                    center: .bottomLeading,
                     startRadius: 0,
                     endRadius: 420
                 )
@@ -35,9 +29,8 @@ struct HomeBackdrop: View {
     var body: some View {
         ZStack {
             LinearGradient(colors: [Palette.paper, Palette.paperDeep], startPoint: .top, endPoint: .bottom)
-            RadialGradient(colors: [Palette.brick.opacity(0.07), .clear], center: .topTrailing, startRadius: 0, endRadius: 420)
-            RadialGradient(colors: [Palette.blue.opacity(0.06), .clear], center: .trailing, startRadius: 0, endRadius: 380)
-            RadialGradient(colors: [Palette.marigold.opacity(0.08), .clear], center: .bottomLeading, startRadius: 0, endRadius: 440)
+            RadialGradient(colors: [Palette.brick.opacity(0.06), .clear], center: .topTrailing, startRadius: 0, endRadius: 400)
+            RadialGradient(colors: [Palette.marigold.opacity(0.07), .clear], center: .leading, startRadius: 0, endRadius: 380)
         }
         .ignoresSafeArea()
     }

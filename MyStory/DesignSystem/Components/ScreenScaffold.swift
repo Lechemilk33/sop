@@ -11,8 +11,10 @@ struct BackAction {
 /// (Home in the top-right corner), the content in the middle, and the main
 /// actions pinned at the bottom so they are always in the same place.
 ///
-/// The content only becomes scrollable when it truly doesn't fit (for example
-/// with very large text). When it fits, there is nothing to swipe at all.
+/// The content only scrolls when it truly doesn't fit (for example with very
+/// large text or the keyboard up). When it fits, it doesn't move or bounce,
+/// so there is nothing to swipe. It's always the same scroll view, so a box
+/// he's typing in never loses the keyboard when space changes.
 struct ScreenScaffold<Content: View, Footer: View>: View {
     private let showsTopBar: Bool
     private let back: BackAction?
@@ -41,15 +43,13 @@ struct ScreenScaffold<Content: View, Footer: View>: View {
                     .padding(.top, 8)
                     .padding(.bottom, 12)
             }
-            ViewThatFits(in: .vertical) {
+            ScrollView {
                 contentStack
-                    .frame(maxHeight: .infinity, alignment: .top)
-                ScrollView {
-                    contentStack
-                }
-                .scrollBounceBehavior(.basedOnSize)
-                .scrollDismissesKeyboard(.interactively)
             }
+            .scrollBounceBehavior(.basedOnSize)
+            // Only the keyboard's own key hides it; no hidden gestures.
+            .scrollDismissesKeyboard(.never)
+            .frame(maxHeight: .infinity)
             if !(footer is EmptyView) {
                 footer
                     .padding(.horizontal, Metrics.screenPadding)

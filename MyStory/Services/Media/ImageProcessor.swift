@@ -66,6 +66,36 @@ enum ImageProcessor {
         return rendered.jpegData(compressionQuality: 0.85)
     }
 
+    /// The whole photo in the square, with calm bars at the sides or top,
+    /// for photos where cropping would cut someone out.
+    static func wholePortrait(from fullData: Data) -> Data? {
+        guard let image = UIImage(data: fullData) else { return nil }
+        let side = portraitSize
+        let scale = min(side / max(1, image.size.width), side / max(1, image.size.height))
+        let drawn = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let origin = CGPoint(x: (side - drawn.width) / 2, y: (side - drawn.height) / 2)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        format.opaque = true
+        let rendered = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format).image { context in
+            // Palette.photoBackdrop, #E6DFD4.
+            UIColor(red: 0xE6 / 255, green: 0xDF / 255, blue: 0xD4 / 255, alpha: 1).setFill()
+            context.fill(CGRect(x: 0, y: 0, width: side, height: side))
+            image.draw(in: CGRect(origin: origin, size: drawn))
+        }
+        return rendered.jpegData(compressionQuality: 0.85)
+    }
+
+    /// A photo's size in pixels, read without decoding it.
+    static func pixelSize(of data: Data) -> CGSize? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int
+        else { return nil }
+        return CGSize(width: width, height: height)
+    }
+
     /// The square around the faces in a stored photo, to start moving and
     /// zooming from.
     static func automaticFraming(for fullData: Data) -> PortraitFraming? {

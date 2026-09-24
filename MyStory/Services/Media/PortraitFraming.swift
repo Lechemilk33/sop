@@ -24,13 +24,15 @@ struct PortraitFraming: Equatable {
         largestSide / max(1, crop.width)
     }
 
-    /// A square around the faces, with room for hair and shoulders and the
-    /// eyes a little above the middle. With no faces, the upper middle of
-    /// the photo, where people's heads usually are.
+    /// A square around the main faces, with room for hair and shoulders and
+    /// the eyes a little above the middle. Small faces in the background
+    /// don't count, and if the main faces are too far apart for one square,
+    /// the biggest face is kept whole rather than cutting everyone in half.
+    /// With no faces, the upper middle of the photo, where heads usually are.
     static func automatic(imageSize: CGSize, faces: [CGRect]) -> PortraitFraming {
         let largest = max(1, min(imageSize.width, imageSize.height))
         let usable = faces.filter { $0.width > 0 && $0.height > 0 }
-        guard let first = usable.first else {
+        guard let biggest = usable.max(by: { $0.width * $0.height < $1.width * $1.height }) else {
             let origin = CGPoint(
                 x: (imageSize.width - largest) / 2,
                 y: (imageSize.height - largest) * 0.3
@@ -38,7 +40,11 @@ struct PortraitFraming: Equatable {
             return PortraitFraming(imageSize: imageSize, crop: CGRect(origin: origin, size: CGSize(width: largest, height: largest)))
                 .clamped()
         }
-        let union = usable.dropFirst().reduce(first) { $0.union($1) }
+        let main = usable.filter { $0.width >= biggest.width * 0.6 }
+        var union = main.reduce(biggest) { $0.union($1) }
+        if max(union.width, union.height) * 1.2 > largest {
+            union = biggest
+        }
         let side = min(largest, max(union.width, union.height) * 2.4)
         let center = CGPoint(x: union.midX, y: union.midY + side * 0.05)
         let crop = CGRect(x: center.x - side / 2, y: center.y - side / 2, width: side, height: side)

@@ -3,7 +3,9 @@ import Observation
 import SwiftData
 
 /// The "Tell a story" journey. He chooses his own story (with a name he
-/// picks, or none) or a question; then he talks; then it's saved.
+/// picks, or none) or a question; then he talks; then it's saved. After
+/// saving he can give it a name and choose who's in it, one step at a time,
+/// and come back to "Saved".
 @MainActor
 @Observable
 final class TellAStoryFlow {
@@ -15,6 +17,10 @@ final class TellAStoryFlow {
         case question
         case recording
         case saved(Story)
+        /// After saving: a name for the story.
+        case renaming(Story)
+        /// After saving: who's in the story.
+        case choosingPeople(Story)
         /// The story couldn't be stored right now, but the recording is safe
         /// on the iPhone and will be rescued automatically.
         case keptSafe
@@ -69,11 +75,6 @@ final class TellAStoryFlow {
         self.reader = reader
         self.transcription = transcription
         self.readsAutomatically = readsAutomatically
-        if case .next = seed {
-            kind = .question
-            prompt = makePrompt()
-            step = .question
-        }
     }
 
     /// The person he's telling a story about, if he came from their page.
@@ -86,12 +87,6 @@ final class TellAStoryFlow {
     var seedChapter: Chapter? {
         if case .chapter(let chapter) = seed { return chapter }
         return nil
-    }
-
-    /// Whether there's a choice screen to go back to.
-    var canGoBackToChoice: Bool {
-        if case .next = seed { return false }
-        return true
     }
 
     // MARK: - Choosing how to start
@@ -183,16 +178,27 @@ final class TellAStoryFlow {
             return
         }
 
+        // The family may have changed things while he talked, so everything
+        // this story links to is looked up again.
         let isAnswer = kind == .question
+        let links = StoryLinks(
+            person: context.existing(aboutPerson),
+            chapter: context.existing(seedChapter),
+            question: isAnswer ? context.existing(prompt.question) : nil,
+            questionPerson: isAnswer ? context.existing(prompt.aboutPerson) : nil,
+            questionChapter: isAnswer ? context.existing(prompt.chapter) : nil,
+            photo: isAnswer ? context.existing(prompt.photo) : nil
+        )
+
         let story = Story(title: storyTitle(), promptText: isAnswer ? prompt.text : "")
         context.insert(story)
         story.audioData = audio
         story.audioFileExtension = finished.fileExtension
         story.duration = talked
-        story.chapter = storyChapter()
-        story.question = isAnswer ? prompt.question : nil
-        story.photo = isAnswer ? prompt.photo : nil
-        story.people = storyPeople()
+        story.chapter = storyChapter(links)
+        story.question = links.question
+        story.photo = links.photo
+        story.people = storyPeople(links)
 
         do {
             try context.save()
@@ -212,14 +218,7 @@ final class TellAStoryFlow {
         note = nil
         stopReason = nil
         ownTitle = ""
-        if case .next = seed {
-            kind = .question
-            prompt = makePrompt()
-            step = .question
-            readIfAutomatic()
-        } else {
-            step = .choose
-        }
+        step = .choose
     }
 
     /// Leaving the screen never loses a story: a recording in progress is
@@ -231,7 +230,36 @@ final class TellAStoryFlow {
         }
     }
 
+    // MARK: - After saving
+
+    /// "Name it and add people": first the name.
+    func nameSavedStory(_ story: Story) {
+        step = .renaming(story)
+    }
+
+    /// Keeps the name he typed (an empty box keeps the current name), then
+    /// on to who's in it.
+    func saveName(_ name: String, for story: Story) {
+        StoryEditing.rename(story, to: name)
+        step = .choosingPeople(story)
+    }
+
+    /// Back to "Saved".
+    func finishOrganizing(_ story: Story) {
+        step = .saved(story)
+    }
+
     // MARK: - Where the story goes
+
+    /// Everything a new story links to, looked up after recording.
+    private struct StoryLinks {
+        let person: Person?
+        let chapter: Chapter?
+        let question: Question?
+        let questionPerson: Person?
+        let questionChapter: Chapter?
+        let photo: Photo?
+    }
 
     private func storyTitle() -> String {
         switch kind {
@@ -243,24 +271,25 @@ final class TellAStoryFlow {
         }
     }
 
-    private func storyChapter() -> Chapter? {
+    private func storyChapter(_ links: StoryLinks) -> Chapter? {
         switch kind {
         case .own:
-            return seedChapter ?? Seeder.chapter(forKey: QuestionBank.moreStoriesKey, in: context)
+            if let chapter = links.chapter { return chapter }
+            // A story about someone goes with the family's stories.
+            let key = links.person == nil ? QuestionBank.moreStoriesKey : QuestionBank.familyKey
+            return Seeder.chapter(forKey: key, in: context)
         case .question:
-            return prompt.chapter ?? defaultChapter()
+            return links.questionChapter ?? defaultChapter()
         }
     }
 
     /// The person he came from, and anyone in the question's photo.
-    private func storyPeople() -> [Person] {
-        var people: [Person] = []
+    private func storyPeople(_ links: StoryLinks) -> [Person] {
         var candidates: [Person] = []
-        if let person = aboutPerson { candidates.append(person) }
-        if kind == .question {
-            if let person = prompt.aboutPerson { candidates.append(person) }
-            candidates += prompt.photo?.people ?? []
-        }
+        if let person = links.person { candidates.append(person) }
+        if let person = links.questionPerson { candidates.append(person) }
+        candidates += links.photo?.people ?? []
+        var people: [Person] = []
         for person in candidates where !people.contains(where: { $0.persistentModelID == person.persistentModelID }) {
             people.append(person)
         }
@@ -277,18 +306,24 @@ final class TellAStoryFlow {
             personPromptIndex += 1
             let family = Seeder.chapter(forKey: QuestionBank.familyKey, in: context)
             return StoryPrompt(text: text, aboutPerson: person, chapter: family)
-        case .start, .next:
+        case .start:
             return nextQuestionPrompt(in: nil)
         case .chapter(let chapter):
             return nextQuestionPrompt(in: chapter)
         }
     }
 
+    /// The next question, from the chapter if it has questions of its own.
+    /// Chapters he made (and More stories) have none, so the question comes
+    /// from anywhere, but the story is still filed in his chapter.
     private func nextQuestionPrompt(in chapter: Chapter?) -> StoryPrompt {
         let descriptor = FetchDescriptor<Question>(predicate: #Predicate { $0.isHidden == false })
         var questions = (try? context.fetch(descriptor)) ?? []
         if let chapter {
-            questions = questions.filter { $0.chapter?.persistentModelID == chapter.persistentModelID }
+            let own = questions.filter { $0.chapter?.persistentModelID == chapter.persistentModelID }
+            if !own.isEmpty {
+                questions = own
+            }
         }
         let candidates = questions.map { question in
             QuestionCandidate(
@@ -318,7 +353,11 @@ final class TellAStoryFlow {
         try? context.save()
         recentQuestionIDs.append(question.uuid)
         lastPromptWasFreeTalk = question.isFreeTalk
-        return StoryPrompt(question: question)
+        var prompt = StoryPrompt(question: question)
+        if let chapter {
+            prompt.chapter = chapter
+        }
+        return prompt
     }
 
     private func defaultTitle() -> String {

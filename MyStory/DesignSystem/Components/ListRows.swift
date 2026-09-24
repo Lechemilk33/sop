@@ -100,15 +100,26 @@ struct RowChevron: View {
     }
 }
 
-/// The check on a chosen row or photo.
+/// "Chosen", with a check, on a chosen row, person or photo; an empty
+/// circle on the others. Screen readers hear "selected" from the row itself.
 struct SelectedMark: View {
     let isSelected: Bool
 
     var body: some View {
-        Image(systemName: isSelected ? Symbols.selected : "circle")
-            .font(.system(size: 34, weight: .semibold))
-            .foregroundStyle(isSelected ? Palette.green : Palette.edge)
-            .accessibilityHidden(true)
+        if isSelected {
+            Label("Chosen", systemImage: Symbols.done)
+                .appFont(.caption)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(Palette.green))
+                .accessibilityHidden(true)
+        } else {
+            Image(systemName: "circle")
+                .font(.system(size: 30, weight: .semibold))
+                .foregroundStyle(Palette.edge)
+                .accessibilityHidden(true)
+        }
     }
 }
 

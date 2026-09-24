@@ -66,8 +66,8 @@ struct CodePad: View {
                 .foregroundStyle(Palette.ink)
                 .frame(width: 78, height: 78)
                 .contentShape(Circle())
-                .glassEffect(.regular.interactive(), in: Circle())
-                .overlay(Circle().strokeBorder(Palette.edge, lineWidth: Metrics.staticBorder))
+                .glassEffect(.regular, in: Circle())
+                .overlay(Circle().strokeBorder(Palette.edge, lineWidth: Metrics.tappableBorder))
             }
             .buttonStyle(PressDimStyle())
             .accessibilityLabel(Text(key == "⌫" ? "Delete" : key))

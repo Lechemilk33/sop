@@ -25,6 +25,8 @@ struct PersonEditorView: View {
     @State private var isChoosingPhoto = false
     @State private var isTakingPhoto = false
     @State private var framingSession: FramingSession?
+    /// A photo just taken, waiting for the camera to close before it's used.
+    @State private var takenPhoto: UIImage?
     @State private var isLoadingPhoto = false
     @State private var photoProblem: String?
     @State private var isConfirmingDelete = false
@@ -60,6 +62,11 @@ struct PersonEditorView: View {
                                 Task { await startFraming() }
                             } label: {
                                 Label("Move and Zoom", systemImage: "crop")
+                            }
+                            Button {
+                                Task { await showWholePhoto() }
+                            } label: {
+                                Label("Show Whole Photo", systemImage: "rectangle.center.inset.filled")
                             }
                             Button(role: .destructive) {
                                 photoData = nil
@@ -160,12 +167,11 @@ struct PersonEditorView: View {
             guard let item else { return }
             Task { await loadPhoto(item) }
         }
-        .fullScreenCover(isPresented: $isTakingPhoto) {
+        .fullScreenCover(isPresented: $isTakingPhoto, onDismiss: useTakenPhoto) {
             CameraPicker(
                 onPicked: { image in
+                    takenPhoto = image
                     isTakingPhoto = false
-                    guard let data = image.jpegData(compressionQuality: 0.9) else { return }
-                    Task { await usePhoto(data) }
                 },
                 onCancel: { isTakingPhoto = false }
             )
@@ -252,6 +258,36 @@ struct PersonEditorView: View {
             ImageProcessor.portrait(from: prepared.full, framing: prepared.framing)
         }.value
         framingSession = FramingSession(image: image, framing: prepared.framing, automatic: prepared.framing)
+    }
+
+    /// Once the camera has closed, the photo is prepared in the background
+    /// and then framed.
+    private func useTakenPhoto() {
+        guard let image = takenPhoto else { return }
+        takenPhoto = nil
+        isLoadingPhoto = true
+        Task {
+            let data = await Task.detached(priority: .userInitiated) {
+                image.jpegData(compressionQuality: 0.9)
+            }.value
+            isLoadingPhoto = false
+            guard let data else {
+                photoProblem = "That photo couldn't be used. Please try again."
+                return
+            }
+            await usePhoto(data)
+        }
+    }
+
+    /// The whole photo in the square, for when cropping would cut someone out.
+    private func showWholePhoto() async {
+        guard let photoData else { return }
+        let full = photoData
+        isLoadingPhoto = true
+        defer { isLoadingPhoto = false }
+        if let whole = await Task.detached(priority: .userInitiated, operation: { ImageProcessor.wholePortrait(from: full) }).value {
+            thumbnailData = whole
+        }
     }
 
     /// Move and zoom the photo that's already there.

@@ -1,20 +1,20 @@
-import PhotosUI
 import SwiftData
 import SwiftUI
 
-/// Choosing a photo for a story: one of the family's photos, or any photo on
-/// the iPhone. "Use no photo" only takes it off the story; the photo itself
-/// is kept.
+/// Choosing a photo for a story from the family's photos, the ones with the
+/// story's people or chapter first. "Use no photo" only takes it off the
+/// story; the photo itself is kept. New photos come in through the family
+/// area, so he never meets the iPhone's own photo picker.
 struct StoryPhotoView: View {
     let story: Story
 
     @Environment(Router.self) private var router
-    @Environment(\.modelContext) private var context
     @Query(sort: \Photo.addedAt, order: .reverse) private var photos: [Photo]
 
-    @State private var pickedItem: PhotosPickerItem?
-    @State private var isAdding = false
-    @State private var problem: String?
+    @State private var showsAll = false
+
+    /// How many photos show before "Show more photos".
+    private let firstCount = 6
 
     private let columns = [
         GridItem(.flexible(), spacing: 16, alignment: .top),
@@ -22,35 +22,26 @@ struct StoryPhotoView: View {
     ]
 
     var body: some View {
+        let ordered = relevantFirst
+        let shown = showsAll ? ordered : Array(ordered.prefix(firstCount))
         ScreenScaffold {
             SectionHeader(title: "A photo for this story", systemImage: Symbols.photo, tone: .marigold)
+            CurrentName(story: story)
             if let photo = story.photo {
-                WholePhoto(cacheKey: photo.imageCacheKey, data: photo.imageData ?? photo.thumbnailData, maxHeight: 220)
-            }
-            PhotosPicker(selection: $pickedItem, matching: .images) {
-                HStack(spacing: 14) {
-                    Image(systemName: Symbols.addPhoto)
-                        .font(.system(size: 24, weight: .semibold))
-                        .accessibilityHidden(true)
-                    Text(isAdding ? "Adding the photo…" : "Choose from my iPhone's photos")
-                        .appFont(.compactButton)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
+                WholePhoto(cacheKey: photo.imageCacheKey, data: photo.imageData ?? photo.thumbnailData, maxHeight: 200)
+                BigButton("Use no photo", systemImage: Symbols.noPhoto, tone: .outline, size: .compact) {
+                    choose(nil)
                 }
-                .frame(maxWidth: .infinity)
             }
-            .buttonStyle(GlassActionStyle(tone: .outline, minHeight: Metrics.compactButtonHeight))
-            .disabled(isAdding)
-            if let problem {
-                Instruction(problem)
-            }
-            if !photos.isEmpty {
-                Text("Or tap one of your family's photos")
-                    .appFont(.subtitle)
-                    .foregroundStyle(Palette.ink)
-                    .fixedSize(horizontal: false, vertical: true)
+            if photos.isEmpty {
+                EmptyStateMessage(
+                    title: "No photos yet",
+                    message: "Your family can add old photos in the Family area. Then you can choose one here."
+                )
+            } else {
+                Instruction(story.photo == nil ? "Tap a photo to add it to this story." : "Tap another photo to use it instead.")
                 LazyVGrid(columns: columns, spacing: 16) {
-                    ForEach(photos) { photo in
+                    ForEach(shown) { photo in
                         PhotoChoiceTile(
                             photo: photo,
                             isSelected: story.photo?.persistentModelID == photo.persistentModelID
@@ -59,10 +50,10 @@ struct StoryPhotoView: View {
                         }
                     }
                 }
-            }
-            if story.photo != nil {
-                BigButton("Use no photo", systemImage: Symbols.noPhoto, tone: .outline, size: .compact) {
-                    choose(nil)
+                if !showsAll, ordered.count > firstCount {
+                    BigButton("Show more photos", systemImage: Symbols.photo, tone: .outline, size: .compact) {
+                        showsAll = true
+                    }
                 }
             }
         } footer: {
@@ -70,42 +61,34 @@ struct StoryPhotoView: View {
                 router.pop()
             }
         }
-        .onChange(of: pickedItem) { _, item in
-            guard let item else { return }
-            Task { await addPhoto(from: item) }
+    }
+
+    /// Photos with the story's people come first, then ones in its chapter,
+    /// then the rest, newest first within each.
+    private var relevantFirst: [Photo] {
+        let peopleIDs = Set((story.people ?? []).map(\.persistentModelID))
+        let chapterID = story.chapter?.persistentModelID
+        func rank(_ photo: Photo) -> Int {
+            if (photo.people ?? []).contains(where: { peopleIDs.contains($0.persistentModelID) }) { return 0 }
+            if let chapterID, photo.chapter?.persistentModelID == chapterID { return 1 }
+            return 2
         }
+        return photos.enumerated()
+            .sorted { lhs, rhs in
+                let left = rank(lhs.element)
+                let right = rank(rhs.element)
+                return left == right ? lhs.offset < rhs.offset : left < right
+            }
+            .map(\.element)
     }
 
     private func choose(_ photo: Photo?) {
         story.photo = photo
-        try? context.save()
-    }
-
-    /// A photo from his iPhone becomes one of the family's photos too, with
-    /// the story's people and chapter already filled in.
-    private func addPhoto(from item: PhotosPickerItem) async {
-        isAdding = true
-        problem = nil
-        defer {
-            isAdding = false
-            pickedItem = nil
-        }
-        guard let data = try? await item.loadTransferable(type: Data.self),
-              let prepared = await Task.detached(priority: .userInitiated, operation: { ImageProcessor.prepare(data) }).value
-        else {
-            problem = "That photo couldn't be added. Please try another one."
-            return
-        }
-        let photo = Photo(imageData: prepared.full, thumbnailData: prepared.thumbnail)
-        context.insert(photo)
-        photo.people = story.people ?? []
-        photo.chapter = story.chapter
-        story.photo = photo
-        try? context.save()
+        try? story.modelContext?.save()
     }
 }
 
-/// One photo to choose, with a green check when it's the story's photo.
+/// One photo to choose, shown whole, marked "Chosen" when it's the story's.
 private struct PhotoChoiceTile: View {
     let photo: Photo
     let isSelected: Bool
@@ -116,23 +99,27 @@ private struct PhotoChoiceTile: View {
         Button {
             TapGuard.perform(action)
         } label: {
-            StoredImage(cacheKey: photo.thumbnailCacheKey, data: photo.thumbnailData ?? photo.imageData, placeholderSymbol: Symbols.photo)
-                .aspectRatio(1, contentMode: .fit)
-                .clipShape(shape)
-                .overlay(
-                    shape.strokeBorder(
-                        isSelected ? Palette.green : Palette.edge,
-                        lineWidth: isSelected ? 4 : Metrics.tappableBorder
-                    )
+            StoredImage(
+                cacheKey: photo.thumbnailCacheKey,
+                data: photo.thumbnailData ?? photo.imageData,
+                placeholderSymbol: Symbols.photo,
+                contentMode: .fit
+            )
+            .aspectRatio(1, contentMode: .fit)
+            .clipShape(shape)
+            .overlay(
+                shape.strokeBorder(
+                    isSelected ? Palette.green : Palette.edge,
+                    lineWidth: isSelected ? 4 : Metrics.tappableBorder
                 )
-                .overlay(alignment: .topTrailing) {
-                    if isSelected {
-                        SelectedMark(isSelected: true)
-                            .background(Circle().fill(Palette.card).padding(3))
-                            .padding(8)
-                    }
+            )
+            .overlay(alignment: .topTrailing) {
+                if isSelected {
+                    SelectedMark(isSelected: true)
+                        .padding(8)
                 }
-                .contentShape(shape)
+            }
+            .contentShape(shape)
         }
         .buttonStyle(PressDimStyle())
         .accessibilityLabel(Text(photo.caption.isEmpty ? "A photo" : photo.caption))

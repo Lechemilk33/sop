@@ -44,7 +44,7 @@ struct SavedStepView: View {
                     router.replaceTop(with: .player(.single(story)))
                 }
                 BigButton("Name it and add people", systemImage: Symbols.organize, tone: .outline, size: .regular) {
-                    router.replaceTop(with: .storyDetails(story))
+                    flow.nameSavedStory(story)
                 }
                 BigButton("Tell another story", systemImage: Symbols.tell, tone: .brick, size: .regular) {
                     flow.startOver()
@@ -57,13 +57,16 @@ struct SavedStepView: View {
         }
     }
 
+    /// Only a name he chose is quoted; an answer isn't called by its question.
     private var message: String {
         let thanks = settings.displayName.isEmpty ? "Thank you." : "Thank you, \(settings.displayName)."
-        let name = "\u{201C}\(story.displayTitle)\u{201D}"
+        let what = story.promptText.isEmpty || story.title != story.promptText
+            ? "\u{201C}\(story.displayTitle)\u{201D}"
+            : "Your answer"
         if let chapter = story.chapter {
-            return "\(thanks) \(name) is in My stories, under \(chapter.name)."
+            return "\(thanks) \(what) is in My stories, under \(chapter.name)."
         }
-        return "\(thanks) \(name) is in My stories."
+        return "\(thanks) \(what) is in My stories."
     }
 
     private var stopNote: String? {

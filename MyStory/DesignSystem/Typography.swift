@@ -27,17 +27,17 @@ enum AppTextStyle {
 
     fileprivate var size: CGFloat {
         switch self {
-        case .greeting: 34
-        case .screenTitle: 32
-        case .personName: 36
+        case .greeting: 36
+        case .screenTitle: 34
+        case .personName: 40
         case .question: 30
-        case .tileTitle: 28
-        case .heroButton: 28
-        case .largeButton: 26
-        case .button: 24
-        case .compactButton: 21
+        case .tileTitle: 30
+        case .heroButton: 32
+        case .largeButton: 30
+        case .button: 26
+        case .compactButton: 22
         case .field: 26
-        case .subtitle: 22
+        case .subtitle: 24
         case .body: 22
         case .bodyBold: 22
         case .caption: 20
@@ -46,9 +46,8 @@ enum AppTextStyle {
 
     fileprivate var weight: AppFontWeight {
         switch self {
-        case .greeting, .screenTitle, .personName: .bold
-        case .question, .tileTitle, .heroButton, .largeButton, .button, .compactButton, .bodyBold: .semibold
-        case .field, .subtitle, .caption: .medium
+        case .greeting, .screenTitle, .personName, .tileTitle, .heroButton, .largeButton: .bold
+        case .question, .button, .compactButton, .bodyBold, .field, .subtitle, .caption: .semibold
         case .body: .regular
         }
     }

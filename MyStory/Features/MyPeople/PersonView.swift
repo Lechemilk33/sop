@@ -19,7 +19,7 @@ struct PersonView: View {
                 maxPixelSize: ImageCache.largePixels
             )
             .aspectRatio(1, contentMode: .fit)
-            .frame(maxWidth: 300)
+            .frame(maxWidth: 220)
             .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 32, style: .continuous).strokeBorder(Palette.hairline, lineWidth: Metrics.staticBorder))
             .shadow(color: Palette.ink.opacity(0.08), radius: 16, y: 6)
@@ -72,7 +72,7 @@ struct PersonView: View {
                     router.push(.personStories(person))
                 }
             }
-
+        } footer: {
             BigButton("Tell a story about \(person.name)", systemImage: Symbols.tell, tone: .brick, size: .regular) {
                 router.push(.tellStory(.about(person)))
             }

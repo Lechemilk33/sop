@@ -16,7 +16,7 @@ struct StoryPlayerView: View {
     var body: some View {
         ScreenScaffold {
             if let story = player.currentStory {
-                StoryDetails(story: story)
+                StoryHeading(story: story)
                 if player.couldNotPlay {
                     EmptyStateMessage(
                         title: "This story can't play right now",
@@ -24,6 +24,12 @@ struct StoryPlayerView: View {
                     )
                 } else {
                     PlayPauseControl()
+                }
+                if !story.sortedPeople.isEmpty {
+                    PeopleStrip(people: story.sortedPeople)
+                }
+                if let photo = story.photo {
+                    WholePhoto(cacheKey: photo.imageCacheKey, data: photo.imageData ?? photo.thumbnailData, maxHeight: 220)
                 }
                 BigButton("About this story", systemImage: Symbols.organize, tone: .outline, size: .compact) {
                     // Paused, not stopped, so coming back carries on.
@@ -94,29 +100,46 @@ struct StoryPlayerView: View {
     }
 }
 
-/// The photo (whole, never cropped), the title, when he told it, and who's in it.
-private struct StoryDetails: View {
+/// When he told it, and its name. The play button comes right after, so
+/// pausing never needs scrolling.
+private struct StoryHeading: View {
     let story: Story
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if let photo = story.photo {
-                WholePhoto(cacheKey: photo.imageCacheKey, data: photo.imageData ?? photo.thumbnailData, maxHeight: 240)
-            }
-            VStack(alignment: .leading, spacing: 6) {
-                Text(DayText.toldByYou(story.recordedAt))
-                    .appFont(.caption)
-                    .foregroundStyle(Palette.softInk)
-                Text(story.displayTitle)
-                    .appFont(.screenTitle)
-                    .foregroundStyle(Palette.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityAddTraits(.isHeader)
-            }
-            ForEach(story.sortedPeople) { person in
-                PersonBadge(person: person, photoSize: 56)
-            }
+        VStack(alignment: .leading, spacing: 6) {
+            Text(DayText.toldByYou(story.recordedAt))
+                .appFont(.caption)
+                .foregroundStyle(Palette.softInk)
+            Text(story.displayTitle)
+                .appFont(.screenTitle)
+                .foregroundStyle(Palette.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Who's in the story: small photos in a row and their names. Not tappable.
+private struct PeopleStrip: View {
+    let people: [Person]
+
+    var body: some View {
+        HStack(spacing: 14) {
+            HStack(spacing: -12) {
+                ForEach(people.prefix(4)) { person in
+                    StoredImage(cacheKey: person.thumbnailCacheKey, data: person.thumbnailData ?? person.photoData)
+                        .frame(width: 52, height: 52)
+                        .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(Palette.card, lineWidth: 3))
+                }
+            }
+            Text("With \(ListText.joined(people.map(\.name)))")
+                .appFont(.subtitle)
+                .foregroundStyle(Palette.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -136,7 +159,7 @@ private struct PlayPauseControl: View {
                     .foregroundStyle(Palette.ink)
                     .frame(width: 132, height: 132)
                     .contentShape(Circle())
-                    .glassEffect(Glass.regular.tint(Palette.marigold).interactive(), in: Circle())
+                    .glassEffect(Glass.regular.tint(Palette.marigold), in: Circle())
                     .background(Circle().fill(Palette.marigold))
                     .overlay(Circle().strokeBorder(Palette.marigoldRim, lineWidth: Metrics.tappableBorder))
             }

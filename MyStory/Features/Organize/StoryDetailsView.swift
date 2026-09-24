@@ -84,57 +84,45 @@ struct StoryDetailsView: View {
     }
 }
 
-/// Giving a story a name: anything he likes.
+/// Giving a story a name: anything he likes. The box starts empty, with
+/// the current name above it; an empty box keeps that name. Going back
+/// keeps what he typed too.
 struct RenameStoryView: View {
     let story: Story
 
     @Environment(Router.self) private var router
 
     @State private var name = ""
-    @State private var hasLoaded = false
     @FocusState private var isTyping: Bool
 
     var body: some View {
         ScreenScaffold {
             SectionHeader(title: "Name this story", systemImage: Symbols.rename, tone: .marigold)
+            CurrentName(story: story)
             Text("What would you like to call it?")
                 .appFont(.question)
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
             TextEntryField(
-                placeholder: "For example: The summer at the lake",
+                example: "For example: The summer at the lake. Leave it empty to keep the name it has.",
                 text: $name,
                 isFocused: $isTyping
             )
-            Text("To say it instead of typing, tap the microphone on the keyboard.")
-                .appFont(.caption)
-                .foregroundStyle(Palette.softInk)
-                .fixedSize(horizontal: false, vertical: true)
+            TypingTip()
         } footer: {
-            BigButton("Save the name", systemImage: Symbols.done, tone: .marigold, size: .large) {
-                save()
+            BigButton(
+                StoryTitles.cleaned(name).isEmpty ? "Keep this name" : "Save the name",
+                systemImage: Symbols.done,
+                tone: .marigold,
+                size: .large
+            ) {
+                isTyping = false
+                router.pop()
             }
         }
-        .onAppear {
-            guard !hasLoaded else { return }
-            hasLoaded = true
-            name = story.title
+        .onDisappear {
+            StoryEditing.rename(story, to: name)
         }
-    }
-
-    private func save() {
-        isTyping = false
-        let cleaned = StoryTitles.cleaned(name)
-        if !cleaned.isEmpty {
-            story.title = cleaned
-        } else if story.promptText.isEmpty {
-            story.title = StoryTitles.untitled(on: story.recordedAt)
-        } else {
-            // Named by its question again.
-            story.title = ""
-        }
-        try? story.modelContext?.save()
-        router.pop()
     }
 }
 
@@ -148,34 +136,24 @@ struct StoryPeopleView: View {
 
     var body: some View {
         ScreenScaffold {
-            SectionHeader(title: "Who's in this story?", systemImage: Symbols.people, tone: .blue)
+            SectionHeader(title: "Choose the people in it", systemImage: Symbols.people, tone: .marigold)
+            CurrentName(story: story)
             if people.isEmpty {
                 EmptyStateMessage(
                     title: "No one here yet",
                     message: "Your family will add the people in your life, with their photos. Then you can choose them here."
                 )
             } else {
-                Instruction("Tap everyone who's part of it. Tap again to take someone off.")
+                Instruction("Tap everyone who's part of this story. Tap again to take someone off.")
                 PeopleGrid(people: people, selected: Set((story.people ?? []).map(\.persistentModelID))) { person in
-                    toggle(person)
+                    StoryEditing.togglePerson(person, in: story)
                 }
             }
         } footer: {
-            BigButton("Done", systemImage: Symbols.done, tone: .blue, size: .regular) {
+            BigButton("Done", systemImage: Symbols.done, tone: .marigold, size: .regular) {
                 router.pop()
             }
         }
-    }
-
-    private func toggle(_ person: Person) {
-        var chosen = story.people ?? []
-        if let index = chosen.firstIndex(where: { $0.persistentModelID == person.persistentModelID }) {
-            chosen.remove(at: index)
-        } else {
-            chosen.append(person)
-        }
-        story.people = chosen
-        try? story.modelContext?.save()
     }
 }
 
@@ -188,12 +166,12 @@ struct StoryChapterView: View {
 
     var body: some View {
         ScreenScaffold {
-            SectionHeader(title: "Which chapter?", systemImage: Symbols.chapter, tone: .marigold)
-            Instruction("Tap the chapter this story belongs in.")
+            SectionHeader(title: "Choose a chapter for it", systemImage: Symbols.chapter, tone: .marigold)
+            CurrentName(story: story)
             BigButton("Make a new chapter", systemImage: Symbols.newChapter, tone: .outline, size: .compact) {
                 router.push(.newChapter(for: story))
             }
-            VStack(spacing: Metrics.itemSpacing) {
+            LazyVStack(spacing: Metrics.itemSpacing) {
                 ForEach(chapters) { chapter in
                     ChapterRow(chapter: chapter, isSelected: story.chapter?.persistentModelID == chapter.persistentModelID) {
                         story.chapter = chapter

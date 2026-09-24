@@ -46,17 +46,23 @@ struct PortraitFramingTests {
         #expect(isInside(framing))
     }
 
-    /// Faces spread wider than a square can hold: the biggest square,
-    /// centered between them.
-    @Test func widelySpreadFacesGetTheBiggestSquare() {
-        let faces = [
-            CGRect(x: 100, y: 700, width: 200, height: 240),
-            CGRect(x: 1700, y: 650, width: 220, height: 260),
-        ]
+    /// Faces too far apart for one square: the biggest face stays whole,
+    /// instead of a square centered between them that cuts everyone.
+    @Test func widelySpreadFacesKeepTheMainFaceWhole() {
+        let main = CGRect(x: 1700, y: 650, width: 220, height: 260)
+        let faces = [CGRect(x: 100, y: 700, width: 200, height: 240), main]
         let framing = PortraitFraming.automatic(imageSize: widePhoto, faces: faces)
-        #expect(framing.crop.width == widePhoto.height)
-        #expect(abs(framing.crop.midX - 1010) < 1)
+        #expect(framing.crop.contains(main))
         #expect(isInside(framing))
+    }
+
+    /// A small face in the background doesn't pull the square away.
+    @Test func ignoresSmallFacesInTheBackground() {
+        let main = CGRect(x: 500, y: 300, width: 400, height: 480)
+        let background = CGRect(x: 1300, y: 1700, width: 60, height: 70)
+        let alone = PortraitFraming.automatic(imageSize: portraitPhoto, faces: [main])
+        let withBackground = PortraitFraming.automatic(imageSize: portraitPhoto, faces: [main, background])
+        #expect(withBackground == alone)
     }
 
     @Test func draggingRightShowsMoreOfTheLeft() {

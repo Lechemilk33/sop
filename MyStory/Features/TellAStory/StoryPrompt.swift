@@ -4,8 +4,6 @@ import Foundation
 enum PromptSeed {
     /// From Home: his own story, or a question from any chapter.
     case start
-    /// Straight to a question from any chapter.
-    case next
     /// A story about one person ("Tell a story about Emily").
     case about(Person)
     /// A story for one chapter.

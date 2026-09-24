@@ -1,8 +1,9 @@
+import PhotosUI
 import SwiftData
 import SwiftUI
 
-/// Check or fix one story: title, chapter, who's in it, roughly when, and the
-/// written words. The recording itself is never changed.
+/// Check or fix one story: title, chapter, who's in it, its photo, roughly
+/// when, and the written words. The recording itself is never changed.
 struct StoryEditorView: View {
     let story: Story
 
@@ -18,6 +19,9 @@ struct StoryEditorView: View {
     @State private var selectedPeople: Set<PersistentIdentifier> = []
     @State private var yearText = ""
     @State private var transcript = ""
+    @State private var photo: Photo?
+    @State private var photoItem: PhotosPickerItem?
+    @State private var isAddingPhoto = false
     @State private var isConfirmingDelete = false
     @State private var hasLoaded = false
 
@@ -58,6 +62,34 @@ struct StoryEditorView: View {
                     .keyboardType(.numberPad)
             }
 
+            Section {
+                if let photo {
+                    StoredImage(
+                        cacheKey: photo.imageCacheKey,
+                        data: photo.imageData ?? photo.thumbnailData,
+                        placeholderSymbol: Symbols.photo,
+                        contentMode: .fit,
+                        maxPixelSize: ImageCache.largePixels
+                    )
+                    .frame(height: 200)
+                    .frame(maxWidth: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                PhotosPicker(selection: $photoItem, matching: .images) {
+                    Label(isAddingPhoto ? "Adding the photo…" : (photo == nil ? "Choose a photo" : "Choose another photo"), systemImage: "photo.badge.plus")
+                }
+                .disabled(isAddingPhoto)
+                if photo != nil {
+                    Button("Use no photo", role: .destructive) {
+                        photo = nil
+                    }
+                }
+            } header: {
+                Text("Photo")
+            } footer: {
+                Text("A photo he sees while he listens. It's also added to the family's photos, so he can choose it for other stories. He can pick from those himself, too.")
+            }
+
             Section("Who's in it") {
                 PeoplePicker(people: people, selection: $selectedPeople)
             }
@@ -87,6 +119,10 @@ struct StoryEditorView: View {
             }
         }
         .onAppear(perform: load)
+        .onChange(of: photoItem) { _, item in
+            guard let item else { return }
+            Task { await addPhoto(from: item) }
+        }
         .onDisappear { clipPlayer.stop() }
         .onChange(of: story.transcript) { _, newValue in
             // Pick up the words when they arrive, unless the family is editing.
@@ -133,6 +169,23 @@ struct StoryEditorView: View {
         selectedPeople = Set((story.people ?? []).map(\.persistentModelID))
         yearText = story.year.map { String($0) } ?? ""
         transcript = story.transcript
+        photo = story.photo
+    }
+
+    /// A new photo from the iPhone joins the family's photos and this story.
+    private func addPhoto(from item: PhotosPickerItem) async {
+        isAddingPhoto = true
+        defer {
+            isAddingPhoto = false
+            photoItem = nil
+        }
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let prepared = await Task.detached(priority: .userInitiated, operation: { ImageProcessor.prepare(data) }).value
+        else { return }
+        let newPhoto = Photo(imageData: prepared.full, thumbnailData: prepared.thumbnail)
+        context.insert(newPhoto)
+        try? context.save()
+        photo = newPhoto
     }
 
     private func save() {
@@ -141,6 +194,7 @@ struct StoryEditorView: View {
             story.chapter = chapter
         }
         story.people = people.filter { selectedPeople.contains($0.persistentModelID) }
+        story.photo = context.existing(photo)
         story.year = Int(yearText.trimmingCharacters(in: .whitespaces))
         let words = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         if words != story.transcript.trimmingCharacters(in: .whitespacesAndNewlines) {

@@ -7,7 +7,7 @@ struct QuestionStepView: View {
     @Environment(QuestionReader.self) private var reader
 
     var body: some View {
-        ScreenScaffold(back: backAction) {
+        ScreenScaffold(back: BackAction(title: "Tell a story") { flow.backToChoice() }) {
             SectionHeader(title: "Answer a question", systemImage: Symbols.question, tone: .brick)
             if let note = flow.note {
                 Instruction(note)
@@ -30,13 +30,6 @@ struct QuestionStepView: View {
                     flow.nextQuestion()
                 }
             }
-        }
-    }
-
-    private var backAction: BackAction? {
-        guard flow.canGoBackToChoice else { return nil }
-        return BackAction(title: "Tell a story") {
-            flow.backToChoice()
         }
     }
 }

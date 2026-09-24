@@ -92,10 +92,11 @@ struct BigButton: View {
     }
 }
 
-/// The look of every button on his screens: Liquid Glass that responds to
-/// touch. Prominent tones sit on a solid color so their words stay legible
-/// on any background; quiet ones are frosted with a clear edge. Pressing
-/// darkens the button a little, without moving anything.
+/// The look of every button on his screens: Liquid Glass. Prominent tones
+/// sit on a solid color so their words stay legible on any background; quiet
+/// ones are frosted with a clear edge. Pressing darkens the button a little,
+/// without moving anything (the glass isn't "interactive", which would make
+/// it bounce).
 struct GlassActionStyle: ButtonStyle {
     let tone: Tone
     var minHeight: CGFloat = Metrics.buttonHeight
@@ -133,12 +134,12 @@ struct GlassActionStyle: ButtonStyle {
 
     private var glass: Glass {
         if tone.isProminent {
-            return Glass.regular.tint(tone.fill).interactive()
+            return Glass.regular.tint(tone.fill)
         }
         if let wash {
-            return Glass.regular.tint(wash).interactive()
+            return Glass.regular.tint(wash)
         }
-        return Glass.regular.interactive()
+        return Glass.regular
     }
 
     /// Dark colors are their own edge. Gold and frosted buttons get one, so

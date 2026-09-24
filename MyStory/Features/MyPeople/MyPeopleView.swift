@@ -71,9 +71,8 @@ struct PersonCard: View {
                     .aspectRatio(1, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(alignment: .topTrailing) {
-                        if let isSelected {
-                            SelectedMark(isSelected: isSelected)
-                                .background(Circle().fill(Palette.card).padding(3))
+                        if isSelected == true {
+                            SelectedMark(isSelected: true)
                                 .padding(8)
                         }
                     }

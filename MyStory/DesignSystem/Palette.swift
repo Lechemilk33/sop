@@ -5,11 +5,13 @@ import SwiftUI
 /// Values and reasons are in PLAN.md → "Look and feel".
 ///
 /// - Text is near-black on warm white (13:1 or more). Soft ink is 7.2:1 or
-///   more everywhere it's used, including over the soft place glows.
-/// - Anything tappable has an edge of at least 3:1 against what's behind it.
+///   more everywhere it's used, including over the soft place glow.
+/// - Anything tappable has an edge of at least 3.5:1 against what's behind it.
+/// - White words on colored buttons are 8:1 on the solid color, so they stay
+///   above 7:1 even where the glass lightens it a little.
 /// - The three places (Tell, People, Stories) differ in lightness as well as
 ///   hue, because Alzheimer's weakens contrast perception and blue–green
-///   judgments: brick L*37, navy L*26, gold L*71.
+///   judgments: brick L*34, navy L*20, gold L*71.
 enum Palette {
     /// The background gradient, top to bottom.
     static let paper = Color(hex: 0xF5F1EB)
@@ -19,22 +21,22 @@ enum Palette {
     static let ink = Color(hex: 0x1C1A17)
     static let softInk = Color(hex: 0x443E39)
     /// Edge of anything tappable.
-    static let edge = Color(hex: 0x82786C)
+    static let edge = Color(hex: 0x766B5F)
     /// Soft edge of things that can't be tapped.
     static let hairline = Color(hex: 0xDCD4C9)
 
     /// Tell a story.
-    static let brick = Color(hex: 0x9A331C)
+    static let brick = Color(hex: 0x8E2F1A)
     static let brickTint = Color(hex: 0xF3DDD5)
     /// My people. Deep navy, so it differs from brick in lightness.
-    static let blue = Color(hex: 0x1F3E6E)
+    static let blue = Color(hex: 0x122F5C)
     static let blueTint = Color(hex: 0xDCE4EF)
     /// My stories. Light gold with dark ink on it.
     static let marigold = Color(hex: 0xE0A33A)
     /// Text and icons on gold tints.
     static let marigoldRim = Color(hex: 0x6E4B0E)
     static let marigoldTint = Color(hex: 0xF5E6C8)
-    static let green = Color(hex: 0x265E36)
+    static let green = Color(hex: 0x215A33)
     static let greenTint = Color(hex: 0xDCEADF)
 
     static let photoBackdrop = Color(hex: 0xE6DFD4)

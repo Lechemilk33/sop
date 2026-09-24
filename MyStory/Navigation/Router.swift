@@ -84,9 +84,8 @@ final class Router {
         stack.append(Route(screen: screen))
     }
 
-    func pop() {
-        guard !stack.isEmpty else { return }
-        stack.removeLast()
+    func pop(_ count: Int = 1) {
+        stack.removeLast(min(max(0, count), stack.count))
     }
 
     func goHome() {
