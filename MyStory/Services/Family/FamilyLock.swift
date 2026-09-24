@@ -8,7 +8,7 @@ import Observation
 ///
 /// There is deliberately no Face ID or passcode fallback: it's his phone, so
 /// his own face or passcode would open it. A forgotten code is reset from the
-/// iPhone's Settings app (Settings → My Story → Reset family code).
+/// iPhone's Settings app (Settings → Apps → My Story → Reset family code).
 @Observable
 final class FamilyLock {
     static let codeLength = 4

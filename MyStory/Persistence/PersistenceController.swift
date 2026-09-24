@@ -1,5 +1,7 @@
 import CloudKit
+import CoreData
 import Foundation
+import Observation
 import SwiftData
 
 /// Creates the store that holds every story, person and photo.
@@ -58,5 +60,55 @@ enum CloudSync {
         guard isEnabled, let containerIdentifier else { return .thisPhoneOnly }
         let account = try? await CKContainer(identifier: containerIdentifier).accountStatus()
         return account == .available ? .backingUp : .notSignedIn
+    }
+}
+
+/// Listens to iCloud's own reports, so the family sees whether stories are
+/// actually reaching iCloud, not only whether it's switched on. It also says
+/// when a download from iCloud has finished, so another iPhone's copies of
+/// the built-in chapters and questions can be tidied up.
+@MainActor
+@Observable
+final class CloudSyncMonitor {
+    /// When stories last reached iCloud.
+    private(set) var lastUploadedAt: Date?
+    /// The last upload failed, and none has worked since.
+    private(set) var hasProblem = false
+
+    @ObservationIgnored var onDownloadFinished: (@MainActor () -> Void)?
+    @ObservationIgnored private var observer: NSObjectProtocol?
+
+    func start() {
+        guard CloudSync.isEnabled, observer == nil else { return }
+        observer = NotificationCenter.default.addObserver(
+            forName: NSPersistentCloudKitContainer.eventChangedNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            let event = notification.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey] as? NSPersistentCloudKitContainer.Event
+            // Only finished events count; each also arrives when it starts.
+            guard let event, let finishedAt = event.endDate else { return }
+            let type = event.type
+            let succeeded = event.succeeded
+            MainActor.assumeIsolated {
+                self?.record(type, succeeded: succeeded, at: finishedAt)
+            }
+        }
+    }
+
+    private func record(_ type: NSPersistentCloudKitContainer.EventType, succeeded: Bool, at date: Date) {
+        switch type {
+        case .export:
+            if succeeded {
+                lastUploadedAt = date
+                hasProblem = false
+            } else {
+                hasProblem = true
+            }
+        case .import:
+            if succeeded { onDownloadFinished?() }
+        default:
+            break
+        }
     }
 }

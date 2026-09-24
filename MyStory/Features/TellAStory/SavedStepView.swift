@@ -12,15 +12,15 @@ struct SavedStepView: View {
 
     var body: some View {
         ScreenScaffold {
-            VStack(spacing: 18) {
+            VStack(spacing: 14) {
                 Image(systemName: Symbols.saved)
-                    .font(.system(size: 58, weight: .bold))
+                    .font(.system(size: 36, weight: .bold))
                     .foregroundStyle(.white)
-                    .frame(width: 124, height: 124)
+                    .frame(width: 76, height: 76)
                     .background(Circle().fill(Palette.green))
                     .accessibilityHidden(true)
                 Text("Saved")
-                    .appFont(.personName)
+                    .appFont(.screenTitle)
                     .foregroundStyle(Palette.ink)
                     .accessibilityAddTraits(.isHeader)
                 Text(message)
@@ -43,10 +43,10 @@ struct SavedStepView: View {
                 BigButton("Listen to it", systemImage: Symbols.play, tone: .marigold, size: .regular) {
                     router.replaceTop(with: .player(.single(story)))
                 }
-                BigButton("Name it and add people", systemImage: Symbols.organize, tone: .outline, size: .regular) {
+                BigButton("Name this story", systemImage: Symbols.rename, tone: .outline, size: .compact) {
                     flow.nameSavedStory(story)
                 }
-                BigButton("Tell another story", systemImage: Symbols.tell, tone: .brick, size: .regular) {
+                BigButton("Tell another story", systemImage: Symbols.tell, tone: .brick, size: .compact) {
                     flow.startOver()
                 }
             }
@@ -91,7 +91,7 @@ struct KeptSafeView: View {
             SectionHeader(title: "Tell a story", systemImage: Symbols.tell, tone: .brick)
             EmptyStateMessage(
                 title: "Your story is safe",
-                message: "It's kept on this iPhone and will appear in My stories soon. Your family can find it in the Family area."
+                message: "It's kept on this iPhone and will appear in My stories soon, with its name."
             )
         }
     }
@@ -104,7 +104,7 @@ struct MicrophoneOffView: View {
             SectionHeader(title: "Tell a story", systemImage: Symbols.microphoneOff, tone: .ink)
             EmptyStateMessage(
                 title: "The microphone is turned off",
-                message: "Ask your family to open the Family area and turn on the microphone for My Story."
+                message: "Ask your family to turn the microphone back on for My Story."
             )
         }
     }

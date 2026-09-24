@@ -7,17 +7,25 @@ struct TopBar: View {
     let onBack: () -> Void
     let onHome: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// One row, always the same: back on the left (its words wrap onto a
+    /// second line if they're long), Home on the right at its full size.
+    /// Only at the largest text sizes does Home sit above the way back.
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) {
-                backButton
-                Spacer(minLength: 12)
-                homeButton
-            }
+        if dynamicTypeSize.isAccessibilitySize {
             VStack(alignment: .leading, spacing: 10) {
                 homeButton
                     .frame(maxWidth: .infinity, alignment: .trailing)
                 backButton
+            }
+        } else {
+            HStack(spacing: 12) {
+                backButton
+                Spacer(minLength: 8)
+                homeButton
+                    .fixedSize()
+                    .layoutPriority(1)
             }
         }
     }

@@ -7,11 +7,11 @@ import SwiftUI
 /// - Text is near-black on warm white (13:1 or more). Soft ink is 7.2:1 or
 ///   more everywhere it's used, including over the soft place glow.
 /// - Anything tappable has an edge of at least 3.5:1 against what's behind it.
-/// - White words on colored buttons are 8:1 on the solid color, so they stay
-///   above 7:1 even where the glass lightens it a little.
+/// - White words on colored buttons are almost 9:1 on the solid color, so
+///   they stay above 7:1 even where the glass lightens it by 7%.
 /// - The three places (Tell, People, Stories) differ in lightness as well as
 ///   hue, because Alzheimer's weakens contrast perception and blue–green
-///   judgments: brick L*34, navy L*20, gold L*71.
+///   judgments: brick L*31, navy L*20, gold L*71.
 enum Palette {
     /// The background gradient, top to bottom.
     static let paper = Color(hex: 0xF5F1EB)
@@ -26,7 +26,7 @@ enum Palette {
     static let hairline = Color(hex: 0xDCD4C9)
 
     /// Tell a story.
-    static let brick = Color(hex: 0x8E2F1A)
+    static let brick = Color(hex: 0x842C18)
     static let brickTint = Color(hex: 0xF3DDD5)
     /// My people. Deep navy, so it differs from brick in lightness.
     static let blue = Color(hex: 0x122F5C)
@@ -36,7 +36,7 @@ enum Palette {
     /// Text and icons on gold tints.
     static let marigoldRim = Color(hex: 0x6E4B0E)
     static let marigoldTint = Color(hex: 0xF5E6C8)
-    static let green = Color(hex: 0x215A33)
+    static let green = Color(hex: 0x1E5530)
     static let greenTint = Color(hex: 0xDCEADF)
 
     static let photoBackdrop = Color(hex: 0xE6DFD4)

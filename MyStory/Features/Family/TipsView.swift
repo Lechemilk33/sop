@@ -17,8 +17,8 @@ struct TipsView: View {
                 "Pauses are fine. Count to ten in your head before saying anything.",
             ])
             tipSection("Invite, don't quiz", [
-                "Never ask \u{201C}Do you remember…?\u{201D}. Try \u{201C}Tell me about…\u{201D} instead.",
-                "Follow up with \u{201C}What happened next?\u{201D}, \u{201C}Who was there?\u{201D}, \u{201C}How did that feel?\u{201D}",
+                "Never ask \u{201C}Do you remember\u{2026}?\u{201D} Try \u{201C}Tell me about\u{2026}\u{201D} instead.",
+                "Follow up gently: \u{201C}What happened next?\u{201D} \u{201C}Who was there?\u{201D} \u{201C}How did that feel?\u{201D}",
                 "Skip dates and exact years. They don't matter to the story.",
             ])
             tipSection("Never correct", [
@@ -31,7 +31,7 @@ struct TipsView: View {
                 "Old photos and music are wonderful prompts. Add photos in the family area.",
             ])
             tipSection("Hard topics", [
-                "If a question upsets him, move on. You can switch off any question in Questions.",
+                "If a question upsets him, move on. In Questions you can switch off any built-in question or delete one of your own; a photo's question is switched off in Photos.",
                 "Ask him now how he'd want difficult subjects handled later, and write down his wishes. Be consistent with them.",
             ])
         }

@@ -40,7 +40,7 @@ Until this is on, stories live only on his iPhone (and in any copies made with *
 There's no Face ID fallback on purpose: it's his phone, so his face or passcode would open the family area.
 
 1. Open the iPhone's **Settings** app → **Apps** → **My Story**, and turn on **Reset family code**.
-2. Open My Story → **For family**. It asks you to choose a new code (type it twice).
+2. Open My Story → **For family** → **Set a new code**, and type the new code twice.
 
 The switch turns itself off again, and no stories, people or photos are touched.
 
@@ -79,8 +79,8 @@ In Xcode: Product → Test (⌘U).
 ## What happens to a story
 
 1. He taps **Start talking**. Audio is recorded uncompressed to a crash-safe file.
-2. He taps **I'm finished**. The file becomes a compact `.m4a` and is stored with the story.
+2. He taps **I'm finished**. The file becomes a compact `.m4a` and is stored with the story. If the phone is locked at that moment it keeps going in the background, and if it runs out of time, the recording waits safely on the iPhone and is added the next time the app opens.
 3. The words are written down on the iPhone (Apple's SpeechAnalyzer). Nothing is sent anywhere.
-4. If the app closes mid-story, the recording is rescued as a new story next time it opens.
+4. If the app closes mid-story, the recording is rescued next time it opens, with the name, question, chapter and people it was going to have. Only a recording certainly shorter than a second and a half is ever thrown away.
 5. **Save a copy of everything** makes a folder with every original recording, the words in text files, the photos, the questions the family recorded, `stories.json`, and `Open me.html`, which plays everything in any web browser. Only the newest copy is kept on the iPhone, so move it somewhere safe (a Mac, a USB drive, iCloud Drive) each time.
 6. Nothing he taps deletes anything. Stories are only removed by the family, from the family area, after a confirmation.

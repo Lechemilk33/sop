@@ -5,7 +5,8 @@ import SwiftUI
 /// stop asking it (for example, a topic that is painful right now).
 struct FamilyQuestionsView: View {
     @Environment(\.modelContext) private var context
-    @Query(filter: #Predicate<Question> { $0.isBuiltIn == false }, sort: \Question.createdAt, order: .reverse)
+    // Photo questions are looked after in Photos, not here.
+    @Query(filter: #Predicate<Question> { $0.isBuiltIn == false && $0.photo == nil }, sort: \Question.createdAt, order: .reverse)
     private var familyQuestions: [Question]
     @Query(sort: \Chapter.sortOrder) private var chapters: [Chapter]
 

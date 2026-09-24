@@ -3,6 +3,7 @@ import Foundation
 import Observation
 import Speech
 import SwiftData
+import UIKit
 
 /// Writes his stories down, entirely on the iPhone, using Apple's
 /// SpeechAnalyzer. Nothing is sent anywhere. The words are only for reading
@@ -26,9 +27,24 @@ final class TranscriptionService {
 
     private let container: ModelContainer
     @ObservationIgnored private var queue: [PersistentIdentifier] = []
+    /// The story being written down right now.
+    @ObservationIgnored private var inFlight: PersistentIdentifier?
+    /// Counts trips to the background, so a story whose writing-down was cut
+    /// short by the phone locking is tried again rather than marked failed.
+    @ObservationIgnored private var backgroundTrips = 0
+    @ObservationIgnored private var backgroundObserver: NSObjectProtocol?
 
     init(container: ModelContainer) {
         self.container = container
+        backgroundObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.backgroundTrips += 1
+            }
+        }
     }
 
     /// Checks whether transcription is ready without downloading anything.
@@ -69,7 +85,7 @@ final class TranscriptionService {
     func enqueue(_ story: Story) {
         story.transcriptState = .pending
         let id = story.persistentModelID
-        if !queue.contains(id) {
+        if !queue.contains(id), id != inFlight {
             queue.append(id)
         }
         startIfNeeded()
@@ -81,13 +97,14 @@ final class TranscriptionService {
         enqueue(story)
     }
 
-    /// Picks up anything left unfinished last time the app ran.
+    /// Picks up anything left unfinished: at launch, and each time the app
+    /// comes back to the front.
     func enqueueUnfinished() {
         let context = container.mainContext
         guard let stories = try? context.fetch(FetchDescriptor<Story>()) else { return }
         for story in stories where story.transcriptState == .pending || story.transcriptState == .working {
             let id = story.persistentModelID
-            if !queue.contains(id) {
+            if !queue.contains(id), id != inFlight {
                 queue.append(id)
             }
         }
@@ -105,20 +122,25 @@ final class TranscriptionService {
     private func drainQueue() async {
         while !queue.isEmpty {
             let id = queue.removeFirst()
+            inFlight = id
             await transcribeStory(id)
+            inFlight = nil
         }
         isWorking = false
     }
 
     private func transcribeStory(_ id: PersistentIdentifier) async {
         let context = container.mainContext
-        guard let story = Self.story(id, in: context), let audio = story.audioData else { return }
+        guard let story = Self.story(id, in: context) else { return }
 
         guard SpeechTranscriber.isAvailable else {
             story.transcriptState = .unavailable
             try? context.save()
             return
         }
+        // Read through a short-lived context, so the recording isn't kept in
+        // memory once it's written down.
+        guard let audio = Self.story(id, in: ModelContext(container))?.audioData else { return }
 
         story.transcriptState = .working
         try? context.save()
@@ -126,10 +148,16 @@ final class TranscriptionService {
             .appendingPathComponent("transcribe-\(UUID().uuidString)")
             .appendingPathExtension(story.audioFileExtension)
         defer { try? FileManager.default.removeItem(at: fileURL) }
+        // A little time to finish if the phone is locked meanwhile.
+        let activity = BackgroundActivity("Write down a story")
+        defer { activity.end() }
+        let tripsAtStart = backgroundTrips
 
         let result: Result<String, Error>
         do {
-            try audio.write(to: fileURL)
+            try await Task.detached(priority: .utility) {
+                try audio.write(to: fileURL)
+            }.value
             if readiness != .ready {
                 await prepare()
             }
@@ -149,7 +177,10 @@ final class TranscriptionService {
             }
             current.transcriptState = .done
         case .failure:
-            current.transcriptState = .failed
+            // Cut short by the phone locking: it waits and is tried again
+            // when the app is next in front. Otherwise the family can try
+            // again from the story.
+            current.transcriptState = backgroundTrips == tripsAtStart ? .failed : .pending
         }
         try? context.save()
     }

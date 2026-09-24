@@ -154,6 +154,8 @@ struct StoryRow: View {
     let story: Story
     let action: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         let detail = "\(DayText.toldShort(story.recordedAt)) · \(DurationText.spoken(story.duration))"
         TappableRow(
@@ -162,7 +164,8 @@ struct StoryRow: View {
             accessibilityText: "\(story.displayTitle). \(detail). Play.",
             action: action
         ) {
-            if let photo = story.photo {
+            // With very large text, the words need the room more.
+            if let photo = story.photo, !dynamicTypeSize.isAccessibilitySize {
                 StoredImage(cacheKey: photo.thumbnailCacheKey, data: photo.thumbnailData ?? photo.imageData, placeholderSymbol: Symbols.photo)
                     .frame(width: 56, height: 56)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))

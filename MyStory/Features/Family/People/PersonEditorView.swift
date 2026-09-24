@@ -30,6 +30,9 @@ struct PersonEditorView: View {
     @State private var isLoadingPhoto = false
     @State private var photoProblem: String?
     @State private var isConfirmingDelete = false
+    /// Deleted only once the editor has closed, so nothing on screen is
+    /// still showing the person when they're removed.
+    @State private var deleteWhenGone = false
     @State private var hasLoaded = false
 
     private var trimmedName: String {
@@ -69,6 +72,7 @@ struct PersonEditorView: View {
                                 Label("Show Whole Photo", systemImage: "rectangle.center.inset.filled")
                             }
                             Button(role: .destructive) {
+                                photoProblem = nil
                                 photoData = nil
                                 thumbnailData = nil
                             } label: {
@@ -78,7 +82,9 @@ struct PersonEditorView: View {
                     } label: {
                         portraitPreview
                     }
-                    .disabled(isLoadingPhoto)
+                    // Not while a hello is being recorded: the camera would
+                    // cover this page and end the recording.
+                    .disabled(isLoadingPhoto || recorder.state != .idle)
                     .accessibilityLabel(photoData == nil ? "Add a photo" : "Change the photo")
                     Text(photoData == nil ? "Tap to add a photo" : "Tap the photo to change it, or to move and zoom it")
                         .font(.subheadline)
@@ -103,11 +109,17 @@ struct PersonEditorView: View {
                 TextField("Name", text: $name)
                     .textInputAutocapitalization(.words)
                     .font(.title3)
+                    .onChange(of: name) { _, newValue in
+                        if newValue.count > Self.longestName { name = String(newValue.prefix(Self.longestName)) }
+                    }
             }
 
             Section {
                 TextField("For example: My daughter", text: $relationship)
                     .textInputAutocapitalization(.sentences)
+                    .onChange(of: relationship) { _, newValue in
+                        if newValue.count > Self.longestName { relationship = String(newValue.prefix(Self.longestName)) }
+                    }
                 Menu {
                     ForEach(RelationshipSuggestions.all, id: \.self) { suggestion in
                         Button(suggestion) { relationship = suggestion }
@@ -161,7 +173,15 @@ struct PersonEditorView: View {
             }
         }
         .onAppear(perform: load)
-        .onDisappear { clipPlayer.stop() }
+        .onDisappear {
+            clipPlayer.stop()
+            // A hello still being recorded when the editor closes isn't kept.
+            Task { await recorder.discardClip() }
+            if deleteWhenGone, let person {
+                context.delete(person)
+                try? context.save()
+            }
+        }
         .photosPicker(isPresented: $isChoosingPhoto, selection: $photoItem, matching: .images)
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
@@ -179,18 +199,27 @@ struct PersonEditorView: View {
         }
         .sheet(item: $framingSession) { session in
             PhotoFramingView(session: session) { framing in
-                Task { await applyFraming(framing) }
+                Task { await applyFraming(framing, to: session.photoData) }
             }
         }
         .confirmationDialog(
-            "Remove \(trimmedName) from My people?",
+            "Remove \(savedName) from My people?",
             isPresented: $isConfirmingDelete,
             titleVisibility: .visible
         ) {
             Button("Remove", role: .destructive, action: delete)
         } message: {
-            Text("Their photo and their hello recording will be deleted. His stories stay; they just won't be linked to \(trimmedName) any more.")
+            Text("Their photo and their hello recording will be deleted. His stories and photos stay; they just won't show \(savedName) any more.")
         }
+    }
+
+    /// Names and relationships are short; a long paste is cut to this.
+    private static let longestName = 60
+
+    /// The name as it's saved, not as it's being typed.
+    private var savedName: String {
+        let saved = person?.name.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return saved.isEmpty ? "this person" : saved
     }
 
     private func load() {
@@ -235,7 +264,14 @@ struct PersonEditorView: View {
     }
 
     private func loadPhoto(_ item: PhotosPickerItem) async {
-        defer { photoItem = nil }
+        // Busy from the start: a photo from iCloud can take a while to arrive,
+        // and Save must wait for it.
+        isLoadingPhoto = true
+        photoProblem = nil
+        defer {
+            isLoadingPhoto = false
+            photoItem = nil
+        }
         guard let data = try? await item.loadTransferable(type: Data.self) else {
             photoProblem = "That photo couldn't be opened. Please try another one."
             return
@@ -243,7 +279,8 @@ struct PersonEditorView: View {
         await usePhoto(data)
     }
 
-    /// A new photo: frame it around their face, then let the family adjust.
+    /// A new photo: framed around their face, then the family adjusts it.
+    /// It only replaces the old photo once they tap Use Photo.
     private func usePhoto(_ data: Data) async {
         isLoadingPhoto = true
         photoProblem = nil
@@ -253,11 +290,7 @@ struct PersonEditorView: View {
             photoProblem = "That photo couldn't be used. Please try another one."
             return
         }
-        photoData = prepared.full
-        thumbnailData = await Task.detached(priority: .userInitiated) {
-            ImageProcessor.portrait(from: prepared.full, framing: prepared.framing)
-        }.value
-        framingSession = FramingSession(image: image, framing: prepared.framing, automatic: prepared.framing)
+        framingSession = FramingSession(image: image, photoData: prepared.full, framing: prepared.framing, automatic: prepared.framing)
     }
 
     /// Once the camera has closed, the photo is prepared in the background
@@ -298,17 +331,19 @@ struct PersonEditorView: View {
         let full = photoData
         guard let framing = await Task.detached(priority: .userInitiated, operation: { ImageProcessor.automaticFraming(for: full) }).value,
               let image = UIImage(data: full) else { return }
-        framingSession = FramingSession(image: image, framing: framing, automatic: framing)
+        framingSession = FramingSession(image: image, photoData: full, framing: framing, automatic: framing)
     }
 
-    private func applyFraming(_ framing: PortraitFraming) async {
-        guard let photoData else { return }
-        let full = photoData
+    /// Use Photo: the photo that was framed, and its square.
+    private func applyFraming(_ framing: PortraitFraming, to full: Data) async {
         isLoadingPhoto = true
         defer { isLoadingPhoto = false }
-        if let portrait = await Task.detached(priority: .userInitiated, operation: { ImageProcessor.portrait(from: full, framing: framing) }).value {
-            thumbnailData = portrait
+        guard let portrait = await Task.detached(priority: .userInitiated, operation: { ImageProcessor.portrait(from: full, framing: framing) }).value else {
+            photoProblem = "That photo couldn't be used. Please try another one."
+            return
         }
+        photoData = full
+        thumbnailData = portrait
     }
 
     private func save() {
@@ -325,18 +360,20 @@ struct PersonEditorView: View {
         target.facts = facts
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-        target.photoData = photoData
-        target.thumbnailData = thumbnailData
-        target.helloAudio = helloAudio
-        target.helloDuration = helloDuration
+        // Photos and recordings are only written if they changed, so an
+        // edited name doesn't copy them all again (or send them to iCloud).
+        if target.photoData != photoData { target.photoData = photoData }
+        if target.thumbnailData != thumbnailData { target.thumbnailData = thumbnailData }
+        if target.helloAudio != helloAudio { target.helloAudio = helloAudio }
+        if target.helloDuration != helloDuration { target.helloDuration = helloDuration }
         try? context.save()
         dismiss()
     }
 
     private func delete() {
-        guard let person else { return }
-        context.delete(person)
-        try? context.save()
+        guard person != nil else { return }
+        clipPlayer.stop()
+        deleteWhenGone = true
         dismiss()
     }
 }

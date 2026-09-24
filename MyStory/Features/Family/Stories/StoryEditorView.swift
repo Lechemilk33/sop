@@ -20,12 +20,22 @@ struct StoryEditorView: View {
     @State private var yearText = ""
     @State private var transcript = ""
     @State private var photo: Photo?
+    /// A photo chosen from the iPhone; it joins the family's photos on Save.
+    @State private var newPhoto: ImageProcessor.Prepared?
     @State private var photoItem: PhotosPickerItem?
     @State private var isAddingPhoto = false
+    @State private var photoProblem: String?
     @State private var isConfirmingDelete = false
+    /// Deleted only once the editor has closed, so nothing on screen is
+    /// still showing the story when it's removed.
+    @State private var deleteWhenGone = false
     @State private var hasLoaded = false
 
     private var clipID: String { "story-\(story.uuid.uuidString)" }
+
+    private var yearIsValid: Bool {
+        yearText.trimmingCharacters(in: .whitespaces).isEmpty || StoryYears.parse(yearText) != nil
+    }
 
     var body: some View {
         Form {
@@ -45,10 +55,16 @@ struct StoryEditorView: View {
                 LabeledContent("Told", value: DayText.long(story.recordedAt))
             }
 
-            Section("Title") {
+            Section {
                 TextField("A short title", text: $title, axis: .vertical)
                     .lineLimit(1...3)
                     .font(.title3)
+            } header: {
+                Text("Title")
+            } footer: {
+                if StoryTitles.cleaned(title).isEmpty {
+                    Text("Left empty, the story is called by its question, or \u{201C}A story\u{201D}.")
+                }
             }
 
             Section {
@@ -60,10 +76,26 @@ struct StoryEditorView: View {
                 }
                 TextField("Roughly what year? (optional)", text: $yearText)
                     .keyboardType(.numberPad)
+            } footer: {
+                if !yearIsValid {
+                    Text("Use four digits, like 1975.")
+                        .foregroundStyle(Palette.brick)
+                }
             }
 
             Section {
-                if let photo {
+                if let newPhoto {
+                    StoredImage(
+                        cacheKey: "story-editor-new-photo",
+                        data: newPhoto.full,
+                        placeholderSymbol: Symbols.photo,
+                        contentMode: .fit,
+                        maxPixelSize: ImageCache.largePixels
+                    )
+                    .frame(height: 200)
+                    .frame(maxWidth: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                } else if let photo {
                     StoredImage(
                         cacheKey: photo.imageCacheKey,
                         data: photo.imageData ?? photo.thumbnailData,
@@ -76,13 +108,19 @@ struct StoryEditorView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 PhotosPicker(selection: $photoItem, matching: .images) {
-                    Label(isAddingPhoto ? "Adding the photo…" : (photo == nil ? "Choose a photo" : "Choose another photo"), systemImage: "photo.badge.plus")
+                    Label(isAddingPhoto ? "Adding the photo\u{2026}" : (hasPhoto ? "Choose another photo" : "Choose a photo"), systemImage: "photo.badge.plus")
                 }
                 .disabled(isAddingPhoto)
-                if photo != nil {
+                if hasPhoto {
                     Button("Use no photo", role: .destructive) {
                         photo = nil
+                        newPhoto = nil
                     }
+                    .disabled(isAddingPhoto)
+                }
+                if let photoProblem {
+                    Text(photoProblem)
+                        .foregroundStyle(Palette.brick)
                 }
             } header: {
                 Text("Photo")
@@ -116,6 +154,8 @@ struct StoryEditorView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save", action: save)
+                    // Wait for a photo that's still arriving, and a real year.
+                    .disabled(isAddingPhoto || !yearIsValid)
             }
         }
         .onAppear(perform: load)
@@ -123,7 +163,13 @@ struct StoryEditorView: View {
             guard let item else { return }
             Task { await addPhoto(from: item) }
         }
-        .onDisappear { clipPlayer.stop() }
+        .onDisappear {
+            clipPlayer.stop()
+            if deleteWhenGone {
+                context.delete(story)
+                try? context.save()
+            }
+        }
         .onChange(of: story.transcript) { _, newValue in
             // Pick up the words when they arrive, unless the family is editing.
             if transcript.isEmpty { transcript = newValue }
@@ -172,30 +218,42 @@ struct StoryEditorView: View {
         photo = story.photo
     }
 
-    /// A new photo from the iPhone joins the family's photos and this story.
+    private var hasPhoto: Bool {
+        newPhoto != nil || photo != nil
+    }
+
+    /// A photo from the iPhone, prepared now and added on Save, so backing
+    /// out never leaves an unused photo in the family's photos.
     private func addPhoto(from item: PhotosPickerItem) async {
         isAddingPhoto = true
+        photoProblem = nil
         defer {
             isAddingPhoto = false
             photoItem = nil
         }
         guard let data = try? await item.loadTransferable(type: Data.self),
               let prepared = await Task.detached(priority: .userInitiated, operation: { ImageProcessor.prepare(data) }).value
-        else { return }
-        let newPhoto = Photo(imageData: prepared.full, thumbnailData: prepared.thumbnail)
-        context.insert(newPhoto)
-        try? context.save()
-        photo = newPhoto
+        else {
+            photoProblem = "That photo couldn't be used. Please try another one."
+            return
+        }
+        newPhoto = prepared
     }
 
     private func save() {
-        story.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        story.title = StoryTitles.cleaned(title)
         if let chapter {
-            story.chapter = chapter
+            story.chapter = context.existing(chapter) ?? story.chapter
         }
         story.people = people.filter { selectedPeople.contains($0.persistentModelID) }
-        story.photo = context.existing(photo)
-        story.year = Int(yearText.trimmingCharacters(in: .whitespaces))
+        if let newPhoto {
+            let added = Photo(imageData: newPhoto.full, thumbnailData: newPhoto.thumbnail)
+            context.insert(added)
+            story.photo = added
+        } else {
+            story.photo = context.existing(photo)
+        }
+        story.year = StoryYears.parse(yearText)
         let words = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         if words != story.transcript.trimmingCharacters(in: .whitespacesAndNewlines) {
             story.transcript = words
@@ -208,8 +266,7 @@ struct StoryEditorView: View {
 
     private func delete() {
         clipPlayer.stop()
-        context.delete(story)
-        try? context.save()
+        deleteWhenGone = true
         dismiss()
     }
 }

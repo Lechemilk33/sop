@@ -52,7 +52,7 @@ struct PeoplePicker: View {
                     }
                 } label: {
                     HStack(spacing: 12) {
-                        StoredImage(cacheKey: person.thumbnailCacheKey, data: person.thumbnailData ?? person.photoData)
+                        StoredImage(cacheKey: person.thumbnailCacheKey, data: person.thumbnailData ?? person.photoData, maxPixelSize: 240)
                             .frame(width: 40, height: 40)
                             .clipShape(Circle())
                         Text(person.name)

@@ -69,6 +69,9 @@ struct Route: Identifiable {
 @Observable
 final class Router {
     private(set) var stack: [Route] = []
+    /// The item he last opened on each screen, so coming back to a long list
+    /// shows the same place instead of the top.
+    @ObservationIgnored private var anchors: [UUID: AnyHashable] = [:]
 
     var current: Screen { stack.last?.screen ?? .home }
     var currentID: UUID? { stack.last?.id }
@@ -86,16 +89,34 @@ final class Router {
 
     func pop(_ count: Int = 1) {
         stack.removeLast(min(max(0, count), stack.count))
+        forgetAnchors()
     }
 
     func goHome() {
         stack.removeAll()
+        forgetAnchors()
     }
 
     /// Swaps the current screen for another, e.g. "Saved" → "Listen to it".
     func replaceTop(with screen: Screen) {
         if !stack.isEmpty { stack.removeLast() }
         stack.append(Route(screen: screen))
+        forgetAnchors()
+    }
+
+    /// Remembers what he's opening from the current screen (Home has none).
+    func remember(_ anchor: some Hashable) {
+        guard let id = currentID else { return }
+        anchors[id] = AnyHashable(anchor)
+    }
+
+    func anchor(for id: UUID?) -> AnyHashable? {
+        id.flatMap { anchors[$0] }
+    }
+
+    private func forgetAnchors() {
+        let live = Set(stack.map(\.id))
+        anchors = anchors.filter { live.contains($0.key) }
     }
 }
 

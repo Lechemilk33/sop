@@ -1,3 +1,4 @@
+import Accessibility
 import SwiftData
 import SwiftUI
 
@@ -53,6 +54,12 @@ struct TellAStoryView: View {
         }
         .onDisappear {
             flow?.leave()
+        }
+        // A note ("That was very short…") is read out with VoiceOver too.
+        .onChange(of: flow?.note) { _, note in
+            if let note {
+                AccessibilityNotification.Announcement(note).post()
+            }
         }
     }
 }
@@ -148,7 +155,8 @@ struct NameStoryView: View {
     }
 }
 
-/// After saving: a name for the story. An empty box keeps its name.
+/// After saving: a name for the story. An empty box keeps its name. Going
+/// back, or Home, keeps what he typed too.
 struct SavedNameView: View {
     let flow: TellAStoryFlow
     let story: Story
@@ -159,9 +167,10 @@ struct SavedNameView: View {
     var body: some View {
         ScreenScaffold(back: BackAction(title: "Saved") {
             isTyping = false
+            StoryEditing.rename(story, to: name)
             flow.finishOrganizing(story)
         }) {
-            SectionHeader(title: "Name your story", systemImage: Symbols.rename, tone: .brick)
+            SectionHeader(title: "Name this story", systemImage: Symbols.rename, tone: .brick)
             CurrentName(story: story)
             Text("What would you like to call it?")
                 .appFont(.question)
@@ -183,6 +192,9 @@ struct SavedNameView: View {
                 isTyping = false
                 flow.saveName(name, for: story)
             }
+        }
+        .onDisappear {
+            StoryEditing.rename(story, to: name)
         }
     }
 }

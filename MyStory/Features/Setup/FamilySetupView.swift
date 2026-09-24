@@ -24,6 +24,7 @@ struct FamilySetupView: View {
     @State private var firstCode = ""
     @State private var typedCode = ""
     @State private var codeNote: String?
+    @State private var nameNote: String?
     @State private var microphoneAllowed: Bool?
     @State private var isPreparingWriting = false
 
@@ -69,9 +70,19 @@ struct FamilySetupView: View {
                 .padding(16)
                 .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Palette.card))
                 .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Palette.edge, lineWidth: 2))
+                .onChange(of: name) { _, newValue in
+                    nameNote = nil
+                    if newValue.count > 40 { name = String(newValue.prefix(40)) }
+                }
+            if let nameNote {
+                Text(nameNote)
+                    .font(.headline)
+                    .foregroundStyle(Palette.brick)
+            }
         case .code:
             title(firstCode.isEmpty ? "Choose a family code" : "Type the code again")
             paragraph("Four numbers. It opens the family area, where you add people, photos and questions. He won't need it.")
+            paragraph("If it's ever forgotten, it can be reset from the iPhone\u{2019}s Settings app, under Apps \u{2192} My Story. Nothing is deleted.")
             if let codeNote {
                 Text(codeNote)
                     .font(.headline)
@@ -85,7 +96,7 @@ struct FamilySetupView: View {
             paragraph("So he can record his stories. The iPhone will ask once. Tap Allow.")
             if let microphoneAllowed {
                 statusLine(
-                    microphoneAllowed ? "The microphone is on." : "The microphone is off. You can turn it on later in the iPhone's Settings app, under My Story.",
+                    microphoneAllowed ? "The microphone is on." : "The microphone is off. You can turn it on later in the iPhone\u{2019}s Settings app, under Apps \u{2192} My Story.",
                     ok: microphoneAllowed
                 )
             }
@@ -103,56 +114,75 @@ struct FamilySetupView: View {
 
     @ViewBuilder
     private var footer: some View {
-        switch step {
-        case .welcome:
-            primary("Start") { step = .name }
-        case .name:
-            primary("Next") {
-                settings.personName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                step = .code
-            }
-            .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        case .code:
-            EmptyView()
-        case .microphone:
-            if microphoneAllowed == nil {
-                primary("Turn on the microphone") {
-                    Task {
-                        microphoneAllowed = await recorder.requestMicrophone()
+        VStack(spacing: 12) {
+            switch step {
+            case .welcome:
+                primary("Start") { step = .name }
+            case .name:
+                primary("Next") {
+                    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty else {
+                        nameNote = "Type his first name first."
+                        return
                     }
+                    settings.personName = trimmed
+                    step = .code
                 }
-            } else {
-                primary("Next") { step = .writing }
-            }
-        case .writing:
-            if transcription.readiness == .ready || transcription.readiness == .unavailable {
-                primary("Next") { step = .done }
-            } else {
-                VStack(spacing: 12) {
-                    primary(isPreparingWriting ? "Getting ready…" : "Get it ready") {
+            case .code:
+                EmptyView()
+            case .microphone:
+                if microphoneAllowed == nil {
+                    primary("Turn on the microphone") {
+                        Task {
+                            microphoneAllowed = await recorder.requestMicrophone()
+                        }
+                    }
+                } else {
+                    primary("Next") { step = .writing }
+                }
+            case .writing:
+                if transcription.readiness == .ready || transcription.readiness == .unavailable {
+                    primary("Next") { step = .done }
+                } else {
+                    primary(isPreparingWriting ? "Getting ready\u{2026}" : "Get it ready") {
                         Task { await prepareWriting() }
                     }
                     .disabled(isPreparingWriting)
-                    Button("Skip for now") { step = .done }
-                        .font(.headline)
-                        .foregroundStyle(Palette.softInk)
-                        .frame(minHeight: 44)
+                    secondary("Skip for now") { step = .done }
                 }
-            }
-        case .done:
-            VStack(spacing: 12) {
+            case .done:
                 primary("Add people now") {
                     settings.hasCompletedSetup = true
                     appState.isFamilyAreaPresented = true
                 }
-                Button("Go to his home screen") {
+                secondary("Go to his home screen") {
                     settings.hasCompletedSetup = true
                 }
-                .font(.headline)
-                .foregroundStyle(Palette.softInk)
-                .frame(minHeight: 44)
+            }
+            if let previous = previousStep {
+                secondary("Back") { goBack(to: previous) }
             }
         }
+    }
+
+    /// Every step after the first can go back one, to fix a name or a code.
+    private var previousStep: Step? {
+        switch step {
+        case .welcome: nil
+        case .name: .welcome
+        case .code: .name
+        case .microphone: .code
+        case .writing: .microphone
+        case .done: .writing
+        }
+    }
+
+    private func goBack(to previous: Step) {
+        codeNote = nil
+        nameNote = nil
+        firstCode = ""
+        typedCode = ""
+        step = previous
     }
 
     // MARK: - Pieces
@@ -189,8 +219,21 @@ struct FamilySetupView: View {
             Text(title)
                 .font(.title3.weight(.bold))
                 .frame(maxWidth: .infinity, minHeight: 60)
+                .contentShape(Rectangle())
         }
         .buttonStyle(GlassActionStyle(tone: .blue, minHeight: 64))
+    }
+
+    /// A quieter choice; the whole width is tappable, not just the words.
+    private func secondary(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(Palette.softInk)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var writingStatus: (text: String, ok: Bool) {
@@ -198,7 +241,7 @@ struct FamilySetupView: View {
         case .ready: ("Ready. His stories will be written down.", true)
         case .unavailable: ("This iPhone can't write stories down. His recordings will still be saved.", false)
         case .downloading: ("Downloading the language file…", false)
-        case .failed: ("That didn't work. Check the internet connection and try again.", false)
+        case .failed: ("That didn\u{2019}t work this time. Make sure the iPhone is online, then try again, or skip this for now. His recordings are saved either way.", false)
         case .needsDownload, .unknown: ("Tap Get it ready to download the language file.", false)
         }
     }

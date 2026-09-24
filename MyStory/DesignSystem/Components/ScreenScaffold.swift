@@ -15,6 +15,10 @@ struct BackAction {
 /// large text or the keyboard up). When it fits, it doesn't move or bounce,
 /// so there is nothing to swipe. It's always the same scroll view, so a box
 /// he's typing in never loses the keyboard when space changes.
+///
+/// At the largest accessibility text sizes the main actions would leave no
+/// room for anything else, so they scroll with the content instead.
+/// Coming back to a list shows the item he last opened, not the top.
 struct ScreenScaffold<Content: View, Footer: View>: View {
     private let showsTopBar: Bool
     private let back: BackAction?
@@ -22,6 +26,8 @@ struct ScreenScaffold<Content: View, Footer: View>: View {
     private let footer: Footer
 
     @Environment(\.placeTone) private var placeTone
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(Router.self) private var router
 
     init(
         showsTopBar: Bool = true,
@@ -35,6 +41,14 @@ struct ScreenScaffold<Content: View, Footer: View>: View {
         self.footer = footer()
     }
 
+    private var hasFooter: Bool {
+        !(footer is EmptyView)
+    }
+
+    private var footerScrolls: Bool {
+        dynamicTypeSize.isAccessibilitySize
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if showsTopBar {
@@ -43,14 +57,28 @@ struct ScreenScaffold<Content: View, Footer: View>: View {
                     .padding(.top, 8)
                     .padding(.bottom, 12)
             }
-            ScrollView {
-                contentStack
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        contentStack
+                        if hasFooter, footerScrolls {
+                            footer
+                                .padding(.horizontal, Metrics.screenPadding)
+                                .padding(.bottom, 24)
+                        }
+                    }
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                // Only the keyboard's own key hides it; no hidden gestures.
+                .scrollDismissesKeyboard(.never)
+                .task {
+                    if let anchor = router.anchor(for: router.currentID) {
+                        proxy.scrollTo(anchor, anchor: .center)
+                    }
+                }
             }
-            .scrollBounceBehavior(.basedOnSize)
-            // Only the keyboard's own key hides it; no hidden gestures.
-            .scrollDismissesKeyboard(.never)
             .frame(maxHeight: .infinity)
-            if !(footer is EmptyView) {
+            if hasFooter, !footerScrolls {
                 footer
                     .padding(.horizontal, Metrics.screenPadding)
                     .padding(.top, 8)

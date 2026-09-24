@@ -18,6 +18,7 @@ struct MyPeopleView: View {
             } else {
                 Instruction("Tap someone to see more.")
                 PeopleGrid(people: people) { person in
+                    router.remember(person.persistentModelID)
                     router.push(.person(person))
                 }
             }
@@ -46,6 +47,7 @@ struct PeopleGrid: View {
                 ) {
                     action(person)
                 }
+                .id(person.persistentModelID)
             }
         }
     }

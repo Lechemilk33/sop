@@ -118,9 +118,11 @@ struct FamilyAreaView: View {
 
 /// Whether stories are backed up to iCloud, checked each time it's shown.
 struct BackupStatusRow: View {
+    @Environment(AppServices.self) private var services
     @State private var status: CloudSync.Status = .checking
 
     var body: some View {
+        let monitor = services.cloudSync
         Group {
             switch status {
             case .checking:
@@ -130,10 +132,19 @@ struct BackupStatusRow: View {
                     systemImage: "icloud",
                     color: Palette.softInk
                 )
+            case .backingUp where monitor.hasProblem:
+                row(
+                    title: "iCloud backup has a problem",
+                    detail: "His stories are safe on this iPhone, but the newest ones haven't reached iCloud. Check that the iPhone is online and that iCloud has space (Settings, then his name, then iCloud). Until then, use Save a copy of everything.",
+                    systemImage: "exclamationmark.icloud",
+                    color: Palette.brick
+                )
             case .backingUp:
                 row(
                     title: "Backing up to iCloud",
-                    detail: "Stories are copied to this iPhone's iCloud account.",
+                    detail: monitor.lastUploadedAt.map {
+                        "Stories are copied to this iPhone's iCloud account. Last copied \($0.formatted(date: .abbreviated, time: .shortened))."
+                    } ?? "Stories are copied to this iPhone's iCloud account.",
                     systemImage: "checkmark.icloud.fill",
                     color: Palette.green
                 )
@@ -147,7 +158,7 @@ struct BackupStatusRow: View {
             case .thisPhoneOnly:
                 row(
                     title: "Saved on this iPhone only",
-                    detail: "Use Save a copy of everything regularly. iCloud backup can be turned on later (see the README).",
+                    detail: "Use Save a copy of everything regularly. Whoever installed My Story can also turn on iCloud backup.",
                     systemImage: "exclamationmark.icloud",
                     color: Palette.brick
                 )

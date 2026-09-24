@@ -12,6 +12,18 @@ struct ChapterSeed: Equatable {
     let askPriority: Int
 }
 
+/// Compares questions by their words, ignoring case, spacing and the kind
+/// of apostrophe, so a question is recognized after small edits.
+enum QuestionMatching {
+    static func normalized(_ text: String) -> String {
+        text.lowercased()
+            .replacingOccurrences(of: "\u{2019}", with: "'")
+            .replacingOccurrences(of: "\u{2018}", with: "'")
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+    }
+}
+
 /// A built-in question. Keys never change once shipped.
 struct QuestionSeed: Equatable {
     let key: String
@@ -227,6 +239,22 @@ enum QuestionBank {
 }
 
 /// Invitations to tell a story about one person.
+/// Invitations for a chapter he or the family made, which has no questions
+/// of its own: questions from other chapters would be filed in the wrong
+/// place, so it's asked about in its own words.
+enum ChapterPrompts {
+    static func texts(for chapterName: String) -> [String] {
+        let name = chapterName.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        guard !name.isEmpty else { return ["Tell me a story."] }
+        let quoted = "\u{201C}\(name)\u{201D}"
+        return [
+            "Tell me a story about \(quoted).",
+            "What do you think of when you hear \(quoted)?",
+            "Tell me more about \(quoted).",
+        ]
+    }
+}
+
 enum PersonPrompts {
     static func texts(for name: String) -> [String] {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)

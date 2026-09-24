@@ -85,6 +85,19 @@ struct QuestionBankTests {
         #expect(work.askPriority < growingUp.askPriority)
     }
 
+    @Test func chapterPromptsInviteAndUseTheName() {
+        let prompts = ChapterPrompts.texts(for: "  Fishing   trips ")
+        #expect(prompts.first == "Tell me a story about \u{201C}Fishing trips\u{201D}.")
+        #expect(prompts.allSatisfy { $0.contains("\u{201C}Fishing trips\u{201D}") })
+        for prompt in prompts {
+            let text = prompt.lowercased()
+            for phrase in Self.quizPhrases {
+                #expect(!text.contains(phrase), "Sounds like a memory test: \(prompt)")
+            }
+        }
+        #expect(ChapterPrompts.texts(for: " ") == ["Tell me a story."])
+    }
+
     @Test func personPromptsUseTheName() {
         let prompts = PersonPrompts.texts(for: "Emily")
         #expect(prompts.allSatisfy { $0.contains("Emily") })

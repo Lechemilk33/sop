@@ -124,6 +124,20 @@ enum StoryTitles {
     }
 }
 
+/// Roughly when a story happened, as the family types it.
+enum StoryYears {
+    static let earliest = 1900
+
+    /// The year typed, if it's a real one: four digits, from 1900 to this
+    /// year. Anything else is nil.
+    static func parse(_ text: String, now: Date = Date(), calendar: Calendar = .current) -> Int? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count == 4, trimmed.allSatisfy(\.isASCII), let year = Int(trimmed) else { return nil }
+        let thisYear = calendar.component(.year, from: now)
+        return (earliest...thisYear).contains(year) ? year : nil
+    }
+}
+
 /// Lists written the way people say them: "Emily", "Emily and Jake",
 /// "Emily, Jake and Sam".
 enum ListText {

@@ -14,27 +14,33 @@ struct PlaceTile: View {
     let action: () -> Void
 
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.heroCornerRadius, style: .continuous)
         Button {
             TapGuard.perform(action)
         } label: {
-            HStack(spacing: 18) {
-                Medallion(systemImage: systemImage, tone: tone, size: Metrics.tileMedallion)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .appFont(.tileTitle)
-                        .foregroundStyle(Palette.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(subtitle)
-                        .appFont(.caption)
-                        .foregroundStyle(Palette.softInk)
-                        .fixedSize(horizontal: false, vertical: true)
+            Group {
+                if dynamicTypeSize.isAccessibilitySize {
+                    // With very large text the words go under the medallion,
+                    // so they get the tile's whole width.
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Medallion(systemImage: systemImage, tone: tone, size: Metrics.tileMedallion)
+                            Spacer(minLength: 8)
+                            RowChevron()
+                        }
+                        words
+                    }
+                } else {
+                    HStack(spacing: 18) {
+                        Medallion(systemImage: systemImage, tone: tone, size: Metrics.tileMedallion)
+                        words
+                        Spacer(minLength: 8)
+                        RowChevron()
+                    }
                 }
-                .multilineTextAlignment(.leading)
-                Spacer(minLength: 8)
-                RowChevron()
             }
             .padding(.leading, Metrics.tileStripe + 18)
             .padding(.trailing, 22)
@@ -59,5 +65,19 @@ struct PlaceTile: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("\(title). \(subtitle)"))
         .accessibilityAddTraits(.isButton)
+    }
+
+    private var words: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .appFont(.tileTitle)
+                .foregroundStyle(Palette.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(subtitle)
+                .appFont(.caption)
+                .foregroundStyle(Palette.softInk)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .multilineTextAlignment(.leading)
     }
 }

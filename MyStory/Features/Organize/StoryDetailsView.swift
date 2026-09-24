@@ -117,9 +117,11 @@ struct RenameStoryView: View {
                 size: .large
             ) {
                 isTyping = false
+                StoryEditing.rename(story, to: name)
                 router.pop()
             }
         }
+        // Going back, or Home, keeps what he typed too.
         .onDisappear {
             StoryEditing.rename(story, to: name)
         }

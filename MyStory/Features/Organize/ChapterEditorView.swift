@@ -1,3 +1,4 @@
+import Accessibility
 import SwiftData
 import SwiftUI
 
@@ -10,6 +11,8 @@ struct ChapterEditorView: View {
 
     @Environment(Router.self) private var router
     @Environment(\.modelContext) private var context
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.textScale) private var textScale
 
     @State private var name = ""
     @State private var symbol = Symbols.simpleChapterChoices[0].symbol
@@ -17,7 +20,18 @@ struct ChapterEditorView: View {
     @State private var note: String?
     @FocusState private var isTyping: Bool
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top), count: 3)
+    /// Three pictures to a row, fewer as the text grows, so no word is cut.
+    private var columns: [GridItem] {
+        let count: Int
+        if dynamicTypeSize >= .accessibility3 {
+            count = 1
+        } else if dynamicTypeSize >= .xxxLarge || textScale >= 1.25 {
+            count = 2
+        } else {
+            count = 3
+        }
+        return Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top), count: count)
+    }
 
     var body: some View {
         ScreenScaffold {
@@ -78,10 +92,12 @@ struct ChapterEditorView: View {
     }
 
     private func save() {
-        let cleaned = StoryTitles.cleaned(name)
+        let cleaned = ChapterOrdering.cleanedName(name)
         guard !cleaned.isEmpty else {
             // Nothing is greyed out: the button shows him what's missing.
-            note = "Type a name for the chapter first."
+            let message = "Type a name for the chapter first."
+            note = message
+            AccessibilityNotification.Announcement(message).post()
             isTyping = true
             return
         }
@@ -114,8 +130,11 @@ private struct PictureChoice: View {
     let isSelected: Bool
     let action: () -> Void
 
+    @Environment(\.colorSchemeContrast) private var contrast
+
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
+        let increased = contrast == .increased
         Button {
             TapGuard.perform(action)
         } label: {
@@ -135,8 +154,8 @@ private struct PictureChoice: View {
             .background(shape.fill(isSelected ? Palette.marigold : Palette.card))
             .overlay(
                 shape.strokeBorder(
-                    isSelected ? Palette.marigoldRim : Palette.edge,
-                    lineWidth: isSelected ? Metrics.increasedContrastBorder : Metrics.tappableBorder
+                    increased ? Palette.ink : (isSelected ? Palette.marigoldRim : Palette.edge),
+                    lineWidth: isSelected || increased ? Metrics.increasedContrastBorder : Metrics.tappableBorder
                 )
             )
             .contentShape(shape)

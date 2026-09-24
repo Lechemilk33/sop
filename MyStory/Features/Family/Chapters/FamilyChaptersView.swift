@@ -39,6 +39,8 @@ struct FamilyChaptersView: View {
                             }
                         }
                     }
+                    // More stories stays last: it catches everything else.
+                    .moveDisabled(chapter.key == QuestionBank.moreStoriesKey)
                 }
                 .onMove(perform: move)
             } header: {
@@ -59,6 +61,10 @@ struct FamilyChaptersView: View {
     private func move(from source: IndexSet, to destination: Int) {
         var ordered = chapters
         ordered.move(fromOffsets: source, toOffset: destination)
+        // Nothing can be moved below More stories.
+        if let last = ordered.firstIndex(where: { $0.key == QuestionBank.moreStoriesKey }) {
+            ordered.append(ordered.remove(at: last))
+        }
         for (index, chapter) in ordered.enumerated() {
             chapter.sortOrder = index
         }
@@ -80,9 +86,12 @@ struct FamilyChapterEditorView: View {
     @State private var symbol = Symbols.chapterChoices[0].symbol
     @State private var hasLoaded = false
     @State private var isConfirmingDelete = false
+    /// Deleted only once the editor has closed, so nothing on screen is
+    /// still showing the chapter when it's removed.
+    @State private var deleteWhenGone = false
 
     private var cleanedName: String {
-        StoryTitles.cleaned(name)
+        ChapterOrdering.cleanedName(name)
     }
 
     private var canRename: Bool {
@@ -131,6 +140,9 @@ struct FamilyChapterEditorView: View {
             }
         }
         .onAppear(perform: load)
+        .onDisappear {
+            if deleteWhenGone { deleteChapter() }
+        }
         .confirmationDialog("Delete this chapter?", isPresented: $isConfirmingDelete, titleVisibility: .visible) {
             Button("Delete chapter", role: .destructive, action: delete)
         } message: {
@@ -171,13 +183,19 @@ struct FamilyChapterEditorView: View {
     }
 
     private func delete() {
-        guard let chapter else { return }
+        guard chapter != nil else { return }
+        deleteWhenGone = true
+        dismiss()
+    }
+
+    /// Its stories move to More stories; none are deleted.
+    private func deleteChapter() {
+        guard let chapter = context.existing(chapter) else { return }
         let moreStories = Seeder.chapter(forKey: QuestionBank.moreStoriesKey, in: context)
         for story in Array(chapter.stories ?? []) {
             story.chapter = moreStories
         }
         context.delete(chapter)
         try? context.save()
-        dismiss()
     }
 }

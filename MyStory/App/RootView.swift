@@ -8,13 +8,18 @@ struct RootView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppServices.self) private var services
     @Environment(StoryRecorder.self) private var recorder
+    @Environment(StoryPlayer.self) private var player
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var backgroundedAt: Date?
 
     /// After this long away, he comes back to Home rather than a deep screen.
+    /// Listening with the phone locked doesn't count as away.
     private let returnHomeAfter: TimeInterval = 10 * 60
+    /// After this long away, the family area is closed, so he never finds it
+    /// open later. A quick look at another app keeps it open.
+    private let closeFamilyAreaAfter: TimeInterval = 2 * 60
 
     var body: some View {
         @Bindable var appState = appState
@@ -38,19 +43,31 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             handle(phase)
         }
+        .onChange(of: player.isPlaying) { _, isPlaying in
+            // A story that ends while the phone is locked starts the time away.
+            if !isPlaying, backgroundedAt != nil {
+                backgroundedAt = Date()
+            }
+        }
     }
 
     private func handle(_ phase: ScenePhase) {
         switch phase {
         case .background:
             backgroundedAt = Date()
-            // The family area never stays open for him to find later.
-            appState.isFamilyAreaPresented = false
         case .active:
-            if let since = backgroundedAt,
-               Date().timeIntervalSince(since) > returnHomeAfter,
-               recorder.state == .idle {
-                router.goHome()
+            if let since = backgroundedAt {
+                let away = Date().timeIntervalSince(since)
+                // The family area never stays open for him to find later,
+                // unless the family is still saving a copy or recording.
+                if away > closeFamilyAreaAfter, appState.isFamilyAreaPresented,
+                   !services.copyMaker.isWorking, recorder.state == .idle {
+                    appState.isFamilyAreaPresented = false
+                }
+                if away > returnHomeAfter, recorder.state == .idle, !player.isPlaying,
+                   !appState.isFamilyAreaPresented {
+                    router.goHome()
+                }
             }
             backgroundedAt = nil
             Task { await services.didBecomeActive() }
@@ -112,7 +129,7 @@ struct StartupErrorView: View {
                 .appFont(.body)
             if let details {
                 Text(details)
-                    .font(.footnote)
+                    .appFont(.caption)
                     .foregroundStyle(Palette.softInk)
             }
         }

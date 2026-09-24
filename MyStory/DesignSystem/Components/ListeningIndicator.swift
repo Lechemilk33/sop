@@ -3,11 +3,13 @@ import SwiftUI
 /// The microphone on the listening screen. It is a soft tinted circle, not a
 /// solid one, so it reads as "listening" rather than as a button. Its halo
 /// grows with his voice, so he can see the app is hearing him. With Reduce
-/// Motion on, the halo stays still.
+/// Motion on, the halo stays still. Paused, it shows a pause sign; while the
+/// story is saved, a quiet microphone.
 struct ListeningIndicator: View {
     /// Voice level from 0 to 1.
     let level: Double
     let isListening: Bool
+    var isSaving = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -22,7 +24,7 @@ struct ListeningIndicator: View {
                 .fill(Palette.brickTint)
                 .frame(width: 160, height: 160)
                 .overlay(Circle().strokeBorder(Palette.brick.opacity(0.35), lineWidth: 1.5))
-            Image(systemName: isListening ? Symbols.tell : Symbols.pause)
+            Image(systemName: isListening || isSaving ? Symbols.tell : Symbols.pause)
                 .font(.system(size: 62, weight: .semibold))
                 .foregroundStyle(isListening ? Palette.brick : Palette.softInk)
         }

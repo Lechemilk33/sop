@@ -24,18 +24,20 @@ enum ImageProcessor {
     /// Portraits are shown large on a person's page, so they're kept sharp.
     static let portraitSize: CGFloat = 900
 
+    /// Photos are decoded straight at the size that's kept, upright, so even
+    /// a 48-megapixel photo never has to be held in memory whole.
     static func prepare(_ data: Data) -> Prepared? {
-        guard let image = UIImage(data: data),
-              let full = resized(image, maxDimension: fullSize).jpegData(compressionQuality: 0.85),
-              let thumbnail = resized(image, maxDimension: thumbnailSize).jpegData(compressionQuality: 0.8)
+        guard let full = downsampled(data, maxPixelSize: fullSize)?.jpegData(compressionQuality: 0.85),
+              let thumbnail = downsampled(data, maxPixelSize: thumbnailSize)?.jpegData(compressionQuality: 0.8)
         else { return nil }
         return Prepared(full: full, thumbnail: thumbnail)
     }
 
     static func preparePortrait(_ data: Data) -> PreparedPortrait? {
-        guard let image = UIImage(data: data) else { return nil }
-        let upright = resized(image, maxDimension: fullSize)
-        guard let full = upright.jpegData(compressionQuality: 0.88), let cgImage = upright.cgImage else { return nil }
+        guard let upright = downsampled(data, maxPixelSize: fullSize),
+              let full = upright.jpegData(compressionQuality: 0.88),
+              let cgImage = upright.cgImage
+        else { return nil }
         let size = CGSize(width: cgImage.width, height: cgImage.height)
         let framing = PortraitFraming.automatic(imageSize: size, faces: faces(in: cgImage))
         return PreparedPortrait(full: full, framing: framing)
@@ -136,18 +138,5 @@ enum ImageProcessor {
         ] as [CFString: Any] as CFDictionary
         guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options) else { return nil }
         return UIImage(cgImage: cgImage)
-    }
-
-    private static func resized(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
-        let size = image.size
-        let longest = max(size.width, size.height)
-        let scale = longest > maxDimension ? maxDimension / longest : 1
-        let target = CGSize(width: (size.width * scale).rounded(), height: (size.height * scale).rounded())
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 1
-        format.opaque = true
-        return UIGraphicsImageRenderer(size: target, format: format).image { _ in
-            image.draw(in: CGRect(origin: .zero, size: target))
-        }
     }
 }

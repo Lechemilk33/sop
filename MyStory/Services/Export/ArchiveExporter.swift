@@ -8,7 +8,9 @@ import SwiftData
 ///
 /// Records are read a few at a time, each batch in its own short-lived
 /// context, so even hundreds of hours of recordings never have to fit in
-/// memory at once.
+/// memory at once. The list of what to copy is taken once at the start, so
+/// a record added or deleted meanwhile never shifts the others: nothing is
+/// copied twice or left out, and a deleted one is simply skipped.
 @MainActor
 struct ArchiveExporter {
     struct Output {
@@ -45,7 +47,8 @@ struct ArchiveExporter {
         Self.removeOldCopies()
         // The folder and the zip made from it both need room for a moment.
         let needed = size.estimatedBytes * 2 + Self.spareBytes
-        if let free = StoryRecorder.availableCapacity(), free < needed {
+        let free = await Task.detached(priority: .userInitiated) { StoryRecorder.availableCapacity() }.value
+        if let free, free < needed {
             throw ExportError.notEnoughSpace(needed: needed)
         }
 
@@ -288,19 +291,20 @@ struct ArchiveExporter {
         sortBy: [SortDescriptor<T>],
         _ body: (T) async throws -> Void
     ) async throws {
-        var offset = 0
-        while true {
+        let ids = try ModelContext(container).fetchIdentifiers(FetchDescriptor<T>(sortBy: sortBy))
+        var start = 0
+        while start < ids.count {
+            let batch = ids[start..<min(start + Self.batchSize, ids.count)]
+            start += batch.count
             let context = ModelContext(container)
-            var descriptor = FetchDescriptor<T>(sortBy: sortBy)
-            descriptor.fetchOffset = offset
-            descriptor.fetchLimit = Self.batchSize
-            let batch = try context.fetch(descriptor)
-            for item in batch {
+            for id in batch {
+                var descriptor = FetchDescriptor<T>(predicate: #Predicate { $0.persistentModelID == id })
+                descriptor.fetchLimit = 1
+                // Deleted since the list was made.
+                guard let item = try context.fetch(descriptor).first else { continue }
                 try await body(item)
                 await Task.yield()
             }
-            guard batch.count == Self.batchSize else { return }
-            offset += batch.count
         }
     }
 

@@ -21,7 +21,7 @@ struct FamilyPeopleView: View {
                         PersonEditorView(person: person)
                     } label: {
                         HStack(spacing: 14) {
-                            StoredImage(cacheKey: person.thumbnailCacheKey, data: person.thumbnailData ?? person.photoData)
+                            StoredImage(cacheKey: person.thumbnailCacheKey, data: person.thumbnailData ?? person.photoData, maxPixelSize: 240)
                                 .frame(width: 52, height: 52)
                                 .clipShape(Circle())
                             VStack(alignment: .leading, spacing: 2) {

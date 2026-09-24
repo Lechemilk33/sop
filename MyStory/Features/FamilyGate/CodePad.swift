@@ -24,10 +24,13 @@ struct CodeDots: View {
     }
 }
 
-/// A large number pad with round glass keys, like the iPhone's own.
+/// A large number pad with round glass keys, like the iPhone's own. The
+/// delete key says "Delete" under its sign.
 struct CodePad: View {
     let onDigit: (String) -> Void
     let onDelete: () -> Void
+
+    @Environment(\.colorSchemeContrast) private var contrast
 
     private let rows: [[String]] = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["", "0", "⌫"]]
 
@@ -56,8 +59,15 @@ struct CodePad: View {
             } label: {
                 Group {
                     if key == "⌫" {
-                        Image(systemName: Symbols.deleteDigit)
-                            .font(.system(size: 24, weight: .semibold))
+                        VStack(spacing: 2) {
+                            Image(systemName: Symbols.deleteDigit)
+                                .font(.system(size: 20, weight: .semibold))
+                            Text("Delete")
+                                .appFont(.caption)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                        }
+                        .padding(.horizontal, 6)
                     } else {
                         Text(key)
                             .appFont(.largeButton)
@@ -67,7 +77,12 @@ struct CodePad: View {
                 .frame(width: 78, height: 78)
                 .contentShape(Circle())
                 .glassEffect(.regular, in: Circle())
-                .overlay(Circle().strokeBorder(Palette.edge, lineWidth: Metrics.tappableBorder))
+                .overlay(
+                    Circle().strokeBorder(
+                        contrast == .increased ? Palette.ink : Palette.edge,
+                        lineWidth: contrast == .increased ? Metrics.increasedContrastBorder : Metrics.tappableBorder
+                    )
+                )
             }
             .buttonStyle(PressDimStyle())
             .accessibilityLabel(Text(key == "⌫" ? "Delete" : key))

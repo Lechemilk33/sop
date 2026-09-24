@@ -10,7 +10,8 @@ struct RecordingStepView: View {
     @Environment(StoryRecorder.self) private var recorder
 
     var body: some View {
-        let isInterrupted = recorder.state == .interrupted
+        let isSaving = flow.isSaving || recorder.state == .finishing
+        let isInterrupted = !isSaving && recorder.state == .interrupted
         ScreenScaffold(showsTopBar: false) {
             InfoCard(spacing: 10) {
                 if flow.kind == .question, let photo = flow.prompt.photo {
@@ -28,42 +29,53 @@ struct RecordingStepView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             VStack(spacing: 12) {
-                ListeningIndicator(level: recorder.level, isListening: recorder.state == .recording)
-                Text(isInterrupted ? "Paused for a moment" : "I'm listening")
+                RecorderLevelIndicator(isSaving: isSaving)
+                Text(isSaving ? "Saving your story" : (isInterrupted ? "Paused for a moment" : "I'm listening"))
                     .appFont(.screenTitle)
                     .foregroundStyle(Palette.ink)
                     .accessibilityAddTraits(.isHeader)
-                Text(isInterrupted ? "Tap Keep going when you're ready." : "Take your time. There's no rush.")
+                Text(message(isSaving: isSaving, isInterrupted: isInterrupted))
                     .appFont(.bodyBold)
                     .foregroundStyle(Palette.softInk)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity)
-            Text("It keeps listening until you tap I'm finished. Everything saves as you talk.")
-                .appFont(.caption)
-                .foregroundStyle(Palette.softInk)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-                .fixedSize(horizontal: false, vertical: true)
+            if !isSaving {
+                Text("It keeps listening until you tap I'm finished. Everything saves as you talk.")
+                    .appFont(.caption)
+                    .foregroundStyle(Palette.softInk)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         } footer: {
-            VStack(spacing: Metrics.sectionSpacing) {
-                if isInterrupted {
-                    BigButton("Keep going", systemImage: Symbols.tell, tone: .brick, size: .large) {
-                        recorder.resume()
+            // While it saves there's nothing to tap, so nothing can go wrong.
+            if !isSaving {
+                VStack(spacing: Metrics.sectionSpacing) {
+                    if isInterrupted {
+                        BigButton("Keep going", systemImage: Symbols.tell, tone: .brick, size: .large) {
+                            recorder.resume()
+                        }
+                    }
+                    BigButton("I'm finished", systemImage: Symbols.stop, tone: .ink, size: .large) {
+                        Task { await flow.finishRecording() }
                     }
                 }
-                BigButton(
-                    flow.isSaving ? "Saving…" : "I'm finished",
-                    systemImage: Symbols.stop,
-                    tone: .ink,
-                    size: .large
-                ) {
-                    Task { await flow.finishRecording() }
-                }
-                .disabled(flow.isSaving)
             }
         }
+    }
+
+    private func message(isSaving: Bool, isInterrupted: Bool) -> String {
+        if isSaving {
+            return "Just a moment."
+        }
+        if isInterrupted {
+            return recorder.couldNotResume
+                ? "Your iPhone is busy with something else. Try Keep going again in a moment."
+                : "Tap Keep going when you're ready."
+        }
+        return "Take your time. There's no rush."
     }
 
     /// The question, or the name he gave his own story.
@@ -73,5 +85,21 @@ struct RecordingStepView: View {
         }
         let name = StoryTitles.cleaned(flow.ownTitle)
         return name.isEmpty ? "Talk about anything you like" : name
+    }
+}
+
+/// Reads his voice level itself, so only the indicator redraws ten times a
+/// second while he talks, not the whole screen.
+private struct RecorderLevelIndicator: View {
+    let isSaving: Bool
+
+    @Environment(StoryRecorder.self) private var recorder
+
+    var body: some View {
+        ListeningIndicator(
+            level: isSaving ? 0 : recorder.level,
+            isListening: !isSaving && recorder.state == .recording,
+            isSaving: isSaving
+        )
     }
 }

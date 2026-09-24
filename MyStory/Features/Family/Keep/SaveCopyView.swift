@@ -6,13 +6,10 @@ import SwiftUI
 struct SaveCopyView: View {
     @Environment(\.modelContext) private var context
     @Environment(AppSettings.self) private var settings
-
-    @State private var isWorking = false
-    @State private var progress: Double = 0
-    @State private var output: ArchiveExporter.Output?
-    @State private var problem: String?
+    @Environment(AppServices.self) private var services
 
     var body: some View {
+        let maker = services.copyMaker
         List {
             Section {
                 Label("Every original recording", systemImage: "waveform")
@@ -27,61 +24,41 @@ struct SaveCopyView: View {
             }
 
             Section {
-                if let output {
+                if maker.isWorking {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ProgressView(value: maker.progress)
+                            .tint(Palette.blue)
+                        Text("Making the copy\u{2026} Keep My Story open until it's done.")
+                            .foregroundStyle(Palette.softInk)
+                    }
+                    .padding(.vertical, 6)
+                } else if let output = maker.madeCopy {
                     ShareLink(item: output.zipURL) {
                         FamilyMenuRow(title: "Save or share the copy", systemImage: "square.and.arrow.up")
                     }
                     Text("\(StoryCountText.text(output.storyCount)) and \(output.photoCount == 1 ? "1 photo" : "\(output.photoCount) photos"). Choose Save to Files to put it on a USB drive or in iCloud Drive, or AirDrop it to a Mac.")
                         .font(.footnote)
                         .foregroundStyle(Palette.softInk)
-                } else if isWorking {
-                    VStack(alignment: .leading, spacing: 10) {
-                        ProgressView(value: progress)
-                            .tint(Palette.blue)
-                        Text("Making the copy…")
-                            .foregroundStyle(Palette.softInk)
-                    }
-                    .padding(.vertical, 6)
                 } else {
                     Button {
-                        Task { await makeCopy() }
+                        Task {
+                            await maker.makeCopy(container: context.container, ownerName: settings.displayName, settings: settings)
+                        }
                     } label: {
                         FamilyMenuRow(title: "Make the copy", systemImage: "square.and.arrow.down")
                     }
                 }
-                if let problem {
+                if let problem = maker.problem {
                     Text(problem)
                         .foregroundStyle(Palette.brick)
                 }
             } footer: {
                 if let saved = settings.lastCopySavedAt {
-                    Text("Last copy made \(DayText.long(saved)).")
+                    Text("The last copy was made on \(DayText.long(saved)). It's only safe once it's saved somewhere other than this iPhone.")
                 }
             }
         }
         .familyBackground()
         .navigationTitle("Save a copy")
-    }
-
-    private func makeCopy() async {
-        isWorking = true
-        problem = nil
-        progress = 0
-        defer { isWorking = false }
-        do {
-            let exporter = ArchiveExporter(container: context.container, ownerName: settings.displayName)
-            let result = try await exporter.makeArchive { value in
-                progress = value
-            }
-            output = result
-            settings.lastCopySavedAt = Date()
-        } catch ArchiveExporter.ExportError.nothingToSave {
-            problem = "There's nothing to save yet."
-        } catch ArchiveExporter.ExportError.notEnoughSpace(let needed) {
-            let amount = ByteCountFormatter.string(fromByteCount: needed, countStyle: .file)
-            problem = "The iPhone needs about \(amount) free to make the copy. Free up space in Settings \u{2192} General \u{2192} iPhone Storage, then try again. His stories are safe either way."
-        } catch {
-            problem = "The copy couldn't be made. Please try again. His stories are safe either way."
-        }
     }
 }

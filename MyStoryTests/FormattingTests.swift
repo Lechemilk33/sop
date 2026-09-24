@@ -88,6 +88,31 @@ struct StoryTitlesTests {
     }
 }
 
+@Suite("Years the family types")
+struct StoryYearsTests {
+    private let now = Date(timeIntervalSince1970: 1_790_000_000) // 2026
+    private let calendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }()
+
+    @Test func acceptsRealYears() {
+        #expect(StoryYears.parse("1975", now: now, calendar: calendar) == 1975)
+        #expect(StoryYears.parse(" 1900 ", now: now, calendar: calendar) == 1900)
+        #expect(StoryYears.parse("2026", now: now, calendar: calendar) == 2026)
+    }
+
+    @Test func refusesAnythingElse() {
+        #expect(StoryYears.parse("", now: now, calendar: calendar) == nil)
+        #expect(StoryYears.parse("75", now: now, calendar: calendar) == nil)
+        #expect(StoryYears.parse("1899", now: now, calendar: calendar) == nil)
+        #expect(StoryYears.parse("2027", now: now, calendar: calendar) == nil)
+        #expect(StoryYears.parse("19x5", now: now, calendar: calendar) == nil)
+        #expect(StoryYears.parse("\u{0661}\u{0669}\u{0667}\u{0665}", now: now, calendar: calendar) == nil)
+    }
+}
+
 @Suite("Lists of names")
 struct ListTextTests {
     @Test func joinsTheWayPeopleSayIt() {

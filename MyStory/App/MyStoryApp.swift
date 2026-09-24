@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct MyStoryApp: App {
     @State private var services: AppServices
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         FontRegistrar.registerBundledFonts()
@@ -25,6 +26,13 @@ struct MyStoryApp: App {
             .environment(\.usesExtraClearLetters, services.settings.usesExtraClearLetters)
             .preferredColorScheme(.light)
             .tint(Palette.blue)
+            .onChange(of: scenePhase) { _, phase in
+                // The stored stories can't be read until the iPhone is first
+                // unlocked after a restart; try again once it's in front.
+                if phase == .active {
+                    services.openStoreIfNeeded()
+                }
+            }
         }
     }
 }

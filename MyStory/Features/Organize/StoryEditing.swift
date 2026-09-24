@@ -46,6 +46,14 @@ enum ChapterOrdering {
 
     /// Chapters whose names hold a meaning the app relies on: More stories
     /// catches stories without a place, and My thoughts holds free talk.
+    /// Chapter names are short, so they fit on a button: a name he or the
+    /// family types is tidied and kept to this many letters.
+    static let longestName = 40
+
+    static func cleanedName(_ raw: String) -> String {
+        String(StoryTitles.cleaned(raw).prefix(longestName))
+    }
+
     static func isRenamable(_ chapter: Chapter) -> Bool {
         chapter.key != QuestionBank.moreStoriesKey && chapter.key != QuestionBank.thoughtsKey
     }

@@ -12,6 +12,10 @@ struct StoryPhotoView: View {
     @Query(sort: \Photo.addedAt, order: .reverse) private var photos: [Photo]
 
     @State private var showsAll = false
+    /// The photo the story had when he came in. It stays first, so nothing
+    /// moves around when he taps a different one.
+    @State private var photoAtStart: PersistentIdentifier?
+    @State private var hasLoaded = false
 
     /// How many photos show before "Show more photos".
     private let firstCount = 6
@@ -27,16 +31,10 @@ struct StoryPhotoView: View {
         ScreenScaffold {
             SectionHeader(title: "A photo for this story", systemImage: Symbols.photo, tone: .marigold)
             CurrentName(story: story)
-            if let photo = story.photo {
-                WholePhoto(cacheKey: photo.imageCacheKey, data: photo.imageData ?? photo.thumbnailData, maxHeight: 200)
-                BigButton("Use no photo", systemImage: Symbols.noPhoto, tone: .outline, size: .compact) {
-                    choose(nil)
-                }
-            }
             if photos.isEmpty {
                 EmptyStateMessage(
                     title: "No photos yet",
-                    message: "Your family can add old photos in the Family area. Then you can choose one here."
+                    message: "Ask your family to add some old photos. Then you can choose one here."
                 )
             } else {
                 Instruction(story.photo == nil ? "Tap a photo to add it to this story." : "Tap another photo to use it instead.")
@@ -55,20 +53,33 @@ struct StoryPhotoView: View {
                         showsAll = true
                     }
                 }
+                if story.photo != nil {
+                    BigButton("Use no photo", systemImage: Symbols.noPhoto, tone: .outline, size: .compact) {
+                        choose(nil)
+                    }
+                }
             }
         } footer: {
             BigButton("Done", systemImage: Symbols.done, tone: .marigold, size: .regular) {
                 router.pop()
             }
         }
+        .onAppear {
+            guard !hasLoaded else { return }
+            hasLoaded = true
+            photoAtStart = story.photo?.persistentModelID
+        }
     }
 
-    /// Photos with the story's people come first, then ones in its chapter,
-    /// then the rest, newest first within each.
+    /// The story's own photo first, where he can see it's chosen; then
+    /// photos with the story's people, then ones in its chapter, then the
+    /// rest, newest first within each.
     private var relevantFirst: [Photo] {
         let peopleIDs = Set((story.people ?? []).map(\.persistentModelID))
         let chapterID = story.chapter?.persistentModelID
+        let firstID = hasLoaded ? photoAtStart : story.photo?.persistentModelID
         func rank(_ photo: Photo) -> Int {
+            if photo.persistentModelID == firstID { return -1 }
             if (photo.people ?? []).contains(where: { peopleIDs.contains($0.persistentModelID) }) { return 0 }
             if let chapterID, photo.chapter?.persistentModelID == chapterID { return 1 }
             return 2
@@ -94,6 +105,8 @@ private struct PhotoChoiceTile: View {
     let isSelected: Bool
     let action: () -> Void
 
+    @Environment(\.colorSchemeContrast) private var contrast
+
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
         Button {
@@ -109,8 +122,8 @@ private struct PhotoChoiceTile: View {
             .clipShape(shape)
             .overlay(
                 shape.strokeBorder(
-                    isSelected ? Palette.green : Palette.edge,
-                    lineWidth: isSelected ? 4 : Metrics.tappableBorder
+                    isSelected ? Palette.green : (contrast == .increased ? Palette.ink : Palette.edge),
+                    lineWidth: isSelected ? 4 : (contrast == .increased ? Metrics.increasedContrastBorder : Metrics.tappableBorder)
                 )
             )
             .overlay(alignment: .topTrailing) {

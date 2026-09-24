@@ -45,8 +45,10 @@ struct MyStoriesView: View {
                 LazyVStack(spacing: Metrics.itemSpacing) {
                     ForEach(shown) { chapter in
                         ChapterRow(chapter: chapter) {
+                            router.remember(chapter.persistentModelID)
                             router.push(.chapter(chapter))
                         }
+                        .id(chapter.persistentModelID)
                     }
                 }
             }

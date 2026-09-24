@@ -116,7 +116,8 @@ struct FamilySettingsView: View {
     }
 }
 
-/// Set a new family code: type it, then type it again.
+/// Set a new family code: type it, then type it again. It says when the
+/// new code is set, rather than just closing.
 struct ChangeCodeView: View {
     @Environment(AppServices.self) private var services
     @Environment(\.dismiss) private var dismiss
@@ -124,23 +125,44 @@ struct ChangeCodeView: View {
     @State private var firstCode = ""
     @State private var typed = ""
     @State private var note: String?
+    @State private var isChanged = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text(firstCode.isEmpty ? "Type a new code" : "Type it again")
-                .appFont(.screenTitle)
-                .foregroundStyle(Palette.ink)
-            if let note {
-                Text(note)
-                    .font(.headline)
-                    .foregroundStyle(Palette.brick)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                if isChanged {
+                    Label("The family code is changed.", systemImage: "checkmark.circle.fill")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(Palette.green)
+                    Text("Use the new code next time you open the family area.")
+                        .font(.body)
+                        .foregroundStyle(Palette.ink)
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Done")
+                            .font(.title3.weight(.bold))
+                            .frame(maxWidth: .infinity, minHeight: 60)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(GlassActionStyle(tone: .blue, minHeight: 64))
+                } else {
+                    Text(firstCode.isEmpty ? "Type a new code" : "Type it again")
+                        .appFont(.screenTitle)
+                        .foregroundStyle(Palette.ink)
+                    if let note {
+                        Text(note)
+                            .font(.headline)
+                            .foregroundStyle(Palette.brick)
+                    }
+                    CodeDots(count: typed.count)
+                        .frame(maxWidth: .infinity)
+                    CodePad(onDigit: add, onDelete: deleteLast)
+                }
             }
-            CodeDots(count: typed.count)
-                .frame(maxWidth: .infinity)
-            CodePad(onDigit: add, onDelete: deleteLast)
-            Spacer(minLength: 0)
+            .padding(20)
         }
-        .padding(20)
+        .scrollBounceBehavior(.basedOnSize)
         .background(Palette.paper.ignoresSafeArea())
         .navigationTitle("Family code")
         .navigationBarTitleDisplayMode(.inline)
@@ -156,7 +178,9 @@ struct ChangeCodeView: View {
             typed = ""
         } else if typed == firstCode {
             services.familyLock.setCode(typed)
-            dismiss()
+            firstCode = ""
+            typed = ""
+            isChanged = true
         } else {
             note = "Those didn't match. Let's start again."
             firstCode = ""

@@ -53,8 +53,11 @@ final class TellAStoryFlow {
     private let transcription: TranscriptionService
     private let readsAutomatically: Bool
 
+    /// The screen has gone, so a recording that was still starting is set aside.
+    @ObservationIgnored private var hasLeft = false
     @ObservationIgnored private var recentQuestionIDs: [UUID] = []
     @ObservationIgnored private var personPromptIndex = 0
+    @ObservationIgnored private var chapterPromptIndex = 0
     @ObservationIgnored private var lastPromptWasFreeTalk = false
     @ObservationIgnored private var generator = SystemRandomNumberGenerator()
 
@@ -140,8 +143,13 @@ final class TellAStoryFlow {
             Task { await self?.finishRecording(stoppedBecause: reason) }
         }
         do {
-            try await recorder.start()
+            try await recorder.start(note: recordingNote())
             step = .recording
+            // He left while it was starting: the moment recorded is too short
+            // to keep, so finishing sets it aside.
+            if hasLeft {
+                await finishRecording()
+            }
         } catch StoryRecorder.RecorderError.microphoneNotAllowed {
             step = .microphoneOff
         } catch StoryRecorder.RecorderError.notEnoughSpace {
@@ -155,11 +163,17 @@ final class TellAStoryFlow {
         guard case .recording = step, !isSaving else { return }
         isSaving = true
         defer { isSaving = false }
+        // Asked for before the microphone stops, in case the phone is locked:
+        // storing the story then still finishes in the background.
+        let activity = BackgroundActivity("Save a story")
+        defer { activity.end() }
 
         let finished: FinishedRecording
         do {
             finished = try await recorder.finish()
         } catch {
+            // Out of time with the phone locked: the whole recording and its
+            // note are safe on disk and become a story by themselves.
             step = .keptSafe
             return
         }
@@ -167,12 +181,14 @@ final class TellAStoryFlow {
         let talked = finished.bestDuration
         if talked > 0, talked < minimumDuration {
             try? FileManager.default.removeItem(at: finished.fileURL)
+            RecordingNote.remove(besideRecordingAt: finished.fileURL)
             note = "That was very short. Take your time and try again."
             step = kind == .own ? .naming : .question
             return
         }
 
-        guard let audio = try? Data(contentsOf: finished.fileURL) else {
+        // Mapped, not read into memory, however long the story is.
+        guard let audio = try? Data(contentsOf: finished.fileURL, options: .alwaysMapped) else {
             // The file stays in the recovery folder and becomes a story later.
             step = .keptSafe
             return
@@ -181,14 +197,7 @@ final class TellAStoryFlow {
         // The family may have changed things while he talked, so everything
         // this story links to is looked up again.
         let isAnswer = kind == .question
-        let links = StoryLinks(
-            person: context.existing(aboutPerson),
-            chapter: context.existing(seedChapter),
-            question: isAnswer ? context.existing(prompt.question) : nil,
-            questionPerson: isAnswer ? context.existing(prompt.aboutPerson) : nil,
-            questionChapter: isAnswer ? context.existing(prompt.chapter) : nil,
-            photo: isAnswer ? context.existing(prompt.photo) : nil
-        )
+        let links = storyLinks(lookingUpAgain: true)
 
         let story = Story(title: storyTitle(), promptText: isAnswer ? prompt.text : "")
         context.insert(story)
@@ -203,6 +212,7 @@ final class TellAStoryFlow {
         do {
             try context.save()
             try? FileManager.default.removeItem(at: finished.fileURL)
+            RecordingNote.remove(besideRecordingAt: finished.fileURL)
             transcription.enqueue(story)
             stopReason = reason
             Haptics.success()
@@ -224,6 +234,7 @@ final class TellAStoryFlow {
     /// Leaving the screen never loses a story: a recording in progress is
     /// finished and saved first.
     func leave() {
+        hasLeft = true
         reader.stop()
         if case .recording = step {
             Task { await finishRecording() }
@@ -232,7 +243,7 @@ final class TellAStoryFlow {
 
     // MARK: - After saving
 
-    /// "Name it and add people": first the name.
+    /// "Name this story": first the name, then who's in it.
     func nameSavedStory(_ story: Story) {
         step = .renaming(story)
     }
@@ -259,6 +270,37 @@ final class TellAStoryFlow {
         let questionPerson: Person?
         let questionChapter: Chapter?
         let photo: Photo?
+    }
+
+    /// Everything the story links to. After recording, it's all looked up
+    /// again, because the family may have changed things while he talked.
+    private func storyLinks(lookingUpAgain: Bool) -> StoryLinks {
+        let isAnswer = kind == .question
+        func current<Model: PersistentModel>(_ model: Model?) -> Model? {
+            lookingUpAgain ? context.existing(model) : model
+        }
+        return StoryLinks(
+            person: current(aboutPerson),
+            chapter: current(seedChapter),
+            question: isAnswer ? current(prompt.question) : nil,
+            questionPerson: isAnswer ? current(prompt.aboutPerson) : nil,
+            questionChapter: isAnswer ? current(prompt.chapter) : nil,
+            photo: isAnswer ? current(prompt.photo) : nil
+        )
+    }
+
+    /// Where the story will go, written next to the recording in case the
+    /// app closes before it's stored.
+    private func recordingNote() -> RecordingNote {
+        let links = storyLinks(lookingUpAgain: false)
+        return RecordingNote(
+            title: storyTitle(),
+            promptText: kind == .question ? prompt.text : "",
+            questionID: links.question?.uuid,
+            chapterID: storyChapter(links)?.uuid,
+            photoID: links.photo?.uuid,
+            peopleIDs: storyPeople(links).map(\.uuid)
+        )
     }
 
     private func storyTitle() -> String {
@@ -309,13 +351,22 @@ final class TellAStoryFlow {
         case .start:
             return nextQuestionPrompt(in: nil)
         case .chapter(let chapter):
+            // A chapter he or the family made is asked about in its own words,
+            // unless the family has written questions for it.
+            let hasQuestions = (chapter.questions ?? []).contains { !$0.isHidden }
+            if chapter.key.isEmpty, !hasQuestions {
+                let texts = ChapterPrompts.texts(for: chapter.name)
+                let text = texts[chapterPromptIndex % texts.count]
+                chapterPromptIndex += 1
+                return StoryPrompt(text: text, aboutPerson: nil, chapter: chapter)
+            }
             return nextQuestionPrompt(in: chapter)
         }
     }
 
     /// The next question, from the chapter if it has questions of its own.
-    /// Chapters he made (and More stories) have none, so the question comes
-    /// from anywhere, but the story is still filed in his chapter.
+    /// More stories has none, so its question comes from anywhere, but the
+    /// story is still filed there.
     private func nextQuestionPrompt(in chapter: Chapter?) -> StoryPrompt {
         let descriptor = FetchDescriptor<Question>(predicate: #Predicate { $0.isHidden == false })
         var questions = (try? context.fetch(descriptor)) ?? []

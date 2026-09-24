@@ -32,6 +32,18 @@ struct FileNamingTests {
         #expect(FileNaming.folderName(for: "Dave") == "Dave\u{2019}s Stories")
         #expect(FileNaming.folderName(for: " ") == "My Stories")
     }
+
+    @Test func avoidsNamesWindowsKeepsForItself() {
+        #expect(FileNaming.sanitized("Con") == "Con_")
+        #expect(FileNaming.sanitized("nul") == "nul_")
+        #expect(FileNaming.sanitized("COM1") == "COM1_")
+        #expect(FileNaming.sanitized("lpt9") == "lpt9_")
+        #expect(FileNaming.isReservedOnWindows("aux.txt"))
+        #expect(!FileNaming.isReservedOnWindows("Connor"))
+        #expect(!FileNaming.isReservedOnWindows("COM10"))
+        #expect(!FileNaming.isReservedOnWindows("COM0"))
+        #expect(FileNaming.sanitized("Connie") == "Connie")
+    }
 }
 
 @Suite("The page that plays everything")

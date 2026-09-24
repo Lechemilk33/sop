@@ -20,7 +20,7 @@ struct StoryPlayerView: View {
                 if player.couldNotPlay {
                     EmptyStateMessage(
                         title: "This story can't play right now",
-                        message: "Your family can check it in the Family area."
+                        message: "Ask your family to take a look at it."
                     )
                 } else {
                     PlayPauseControl()
@@ -143,7 +143,8 @@ private struct PeopleStrip: View {
     }
 }
 
-/// The big round glass play/pause button and the progress under it.
+/// The play/pause button, the biggest thing on the screen with its word
+/// inside it, and the progress under it.
 private struct PlayPauseControl: View {
     @Environment(StoryPlayer.self) private var player
 
@@ -151,25 +152,9 @@ private struct PlayPauseControl: View {
         let symbol = player.isPlaying ? Symbols.pause : (player.hasFinished ? Symbols.playAgain : Symbols.play)
         let label = player.isPlaying ? "Pause" : (player.hasFinished ? "Play it again" : "Play")
         VStack(spacing: 12) {
-            Button {
-                TapGuard.perform { player.togglePlayPause() }
-            } label: {
-                Image(systemName: symbol)
-                    .font(.system(size: 52, weight: .semibold))
-                    .foregroundStyle(Palette.ink)
-                    .frame(width: 132, height: 132)
-                    .contentShape(Circle())
-                    .glassEffect(Glass.regular.tint(Palette.marigold), in: Circle())
-                    .background(Circle().fill(Palette.marigold))
-                    .overlay(Circle().strokeBorder(Palette.marigoldRim, lineWidth: Metrics.tappableBorder))
+            BigButton(label, systemImage: symbol, tone: .marigold, size: .hero) {
+                player.togglePlayPause()
             }
-            .buttonStyle(PressDimStyle())
-            .accessibilityLabel(Text(label))
-
-            Text(label)
-                .appFont(.button)
-                .foregroundStyle(Palette.ink)
-                .accessibilityHidden(true)
 
             ProgressTrack(value: player.progress)
             HStack {

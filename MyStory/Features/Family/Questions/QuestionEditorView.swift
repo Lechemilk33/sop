@@ -19,10 +19,16 @@ struct QuestionEditorView: View {
     @State private var recordedAudio: Data?
     @State private var recordedDuration: Double = 0
     @State private var isConfirmingDelete = false
+    /// Deleted only once the editor has closed, so nothing on screen is
+    /// still showing the question when it's removed.
+    @State private var deleteWhenGone = false
     @State private var hasLoaded = false
 
+    /// One question, on one line, not too long to read on his screen.
     private var trimmedText: String {
-        text.trimmingCharacters(in: .whitespacesAndNewlines)
+        String(text.split(whereSeparator: \.isNewline).joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .prefix(200))
     }
 
     var body: some View {
@@ -90,9 +96,19 @@ struct QuestionEditorView: View {
             }
         }
         .onAppear(perform: load)
-        .onDisappear { clipPlayer.stop() }
+        .onDisappear {
+            clipPlayer.stop()
+            // A question still being recorded when the editor closes isn't kept.
+            Task { await recorder.discardClip() }
+            if deleteWhenGone, let question {
+                context.delete(question)
+                try? context.save()
+            }
+        }
         .confirmationDialog("Delete this question?", isPresented: $isConfirmingDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive, action: delete)
+        } message: {
+            Text("It won't be asked again. Stories already told for it are kept.")
         }
     }
 
@@ -115,17 +131,17 @@ struct QuestionEditorView: View {
             context.insert(target)
         }
         target.text = trimmedText
-        target.chapter = chapter
-        target.askedBy = askedBy
-        target.recordedAudio = recordedAudio
+        target.chapter = context.existing(chapter)
+        target.askedBy = context.existing(askedBy)
+        if target.recordedAudio != recordedAudio { target.recordedAudio = recordedAudio }
         try? context.save()
         dismiss()
     }
 
     private func delete() {
-        guard let question else { return }
-        context.delete(question)
-        try? context.save()
+        guard question != nil else { return }
+        clipPlayer.stop()
+        deleteWhenGone = true
         dismiss()
     }
 }

@@ -2,7 +2,8 @@ import AVFoundation
 import Observation
 
 /// Plays short clips: a family member's recorded hello, or a question read in
-/// their own voice. One clip at a time.
+/// their own voice. One clip at a time. A call, or taking out headphones,
+/// stops the clip.
 @MainActor
 @Observable
 final class ClipPlayer {
@@ -11,11 +12,22 @@ final class ClipPlayer {
 
     @ObservationIgnored private var player: AVAudioPlayer?
     private let relay = PlayerFinishRelay()
+    @ObservationIgnored private var events: AudioSessionEvents?
 
     init() {
-        relay.onFinish = { [weak self] _ in
-            self?.playingID = nil
-            self?.player = nil
+        relay.onFinish = { [weak self] finished, _ in
+            // A late message from a clip that was already replaced.
+            guard let self, finished === self.player else { return }
+            self.player = nil
+            self.playingID = nil
+        }
+        events = AudioSessionEvents { [weak self] event in
+            switch event {
+            case .interruptionBegan, .outputLost, .servicesReset:
+                self?.stop()
+            case .interruptionEnded:
+                break
+            }
         }
     }
 
@@ -34,7 +46,7 @@ final class ClipPlayer {
     func play(id: String, data: Data?) {
         stop()
         guard let data, let newPlayer = try? AVAudioPlayer(data: data) else { return }
-        AudioSessionController.activateForPlayback()
+        guard AudioSessionController.activateForPlayback() else { return }
         newPlayer.delegate = relay
         newPlayer.prepareToPlay()
         guard newPlayer.play() else { return }

@@ -127,7 +127,8 @@ struct GlassActionStyle: ButtonStyle {
                 }
             }
             .overlay {
-                shape.fill(Palette.ink.opacity(configuration.isPressed ? 0.1 : 0))
+                // Gentler on gold, so dark words keep 7:1 while pressed.
+                shape.fill(Palette.ink.opacity(configuration.isPressed ? (tone == .marigold ? 0.06 : 0.1) : 0))
                     .allowsHitTesting(false)
             }
     }
@@ -158,11 +159,11 @@ struct GlassActionStyle: ButtonStyle {
     }
 }
 
-/// Used for tappable cards: dims slightly while pressed.
+/// Used for tappable cards and round buttons: darkens slightly while
+/// pressed, following the button's own shape, without moving anything.
 struct PressDimStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .overlay(Color.black.opacity(configuration.isPressed ? 0.06 : 0).allowsHitTesting(false))
-            .opacity(configuration.isPressed ? 0.88 : 1)
+            .brightness(configuration.isPressed ? -0.06 : 0)
     }
 }

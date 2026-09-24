@@ -39,21 +39,33 @@ enum AudioConverter {
     }
 
     /// Finishes a raw recording: converts the crash-safe PCM `.caf` into `.m4a`
-    /// and deletes the `.caf`. If conversion fails, the `.caf` itself is kept
-    /// and returned, so a story is never lost.
+    /// and deletes the `.caf`. If conversion fails, or the `.m4a` comes out
+    /// shorter than what was recorded, the `.caf` itself is kept and
+    /// returned, so a story is never lost or cut short.
+    ///
+    /// Throws `CancellationError` if cancelled (the app ran out of time in
+    /// the background); the `.caf` is then left exactly as it was.
     ///
     /// - Parameter measuredDuration: how long the recorder says it recorded,
     ///   used when the file's own duration can't be read.
-    static func finalizeRecording(at cafURL: URL, measuredDuration: TimeInterval = 0) async -> FinishedRecording {
+    static func finalizeRecording(at cafURL: URL, measuredDuration: TimeInterval = 0) async throws -> FinishedRecording {
         let m4aURL = cafURL.deletingPathExtension().appendingPathExtension("m4a")
         do {
             try await convertToM4A(from: cafURL, to: m4aURL)
+            try Task.checkCancellation()
             let seconds = await AudioConverter.duration(of: m4aURL)
-            guard seconds > 0 else { throw ConversionError.cannotExport }
+            let original = await AudioConverter.duration(of: cafURL)
+            guard ConversionCheck.isComplete(converted: seconds, original: max(original, measuredDuration)) else {
+                throw ConversionError.cannotExport
+            }
+            try Task.checkCancellation()
             try? FileManager.default.removeItem(at: cafURL)
             return FinishedRecording(fileURL: m4aURL, fileExtension: "m4a", duration: seconds, measuredDuration: measuredDuration)
         } catch {
             try? FileManager.default.removeItem(at: m4aURL)
+            if error is CancellationError || Task.isCancelled {
+                throw CancellationError()
+            }
             let seconds = await AudioConverter.duration(of: cafURL)
             return FinishedRecording(
                 fileURL: cafURL,

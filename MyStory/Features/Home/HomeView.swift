@@ -7,6 +7,7 @@ struct HomeView: View {
     @Environment(Router.self) private var router
     @Environment(AppSettings.self) private var settings
     @Environment(StoryPlayer.self) private var player
+    @Environment(AppServices.self) private var services
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,8 +29,11 @@ struct HomeView: View {
             .padding(.bottom, 12)
         }
         .background(HomeBackdrop())
-        // Coming home ends anything that was waiting, like a paused story.
-        .onAppear { player.stop() }
+        .onAppear {
+            // Coming home ends anything that was waiting, like a paused story.
+            player.stop()
+            services.tidyIfNeeded()
+        }
     }
 
     private func content(tileHeight: CGFloat) -> some View {
@@ -90,6 +94,8 @@ struct HomeView: View {
 private struct FamilyEntryButton: View {
     let action: () -> Void
 
+    @Environment(\.colorSchemeContrast) private var contrast
+
     var body: some View {
         Button {
             TapGuard.perform(action)
@@ -106,7 +112,12 @@ private struct FamilyEntryButton: View {
             .frame(minHeight: Metrics.minimumTarget)
             .contentShape(Capsule())
             .glassEffect(.regular, in: Capsule())
-            .overlay(Capsule().strokeBorder(Palette.edge, lineWidth: Metrics.tappableBorder))
+            .overlay(
+                Capsule().strokeBorder(
+                    contrast == .increased ? Palette.ink : Palette.edge,
+                    lineWidth: contrast == .increased ? Metrics.increasedContrastBorder : Metrics.tappableBorder
+                )
+            )
         }
         .buttonStyle(PressDimStyle())
         .frame(maxWidth: .infinity)

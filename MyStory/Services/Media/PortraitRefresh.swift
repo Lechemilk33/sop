@@ -26,8 +26,13 @@ enum PortraitRefresh {
             guard let framed, let person = Self.person(item.id, in: context), person.photoData == photo else { continue }
             person.thumbnailData = framed
         }
-        try? context.save()
-        defaults.set(currentVersion, forKey: versionKey)
+        // Only marked done once it's stored; otherwise it runs again next launch.
+        do {
+            try context.save()
+            defaults.set(currentVersion, forKey: versionKey)
+        } catch {
+            context.rollback()
+        }
     }
 
     /// Framed portraits are square; the old thumbnails kept the photo's shape.

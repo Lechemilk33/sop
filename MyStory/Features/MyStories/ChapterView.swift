@@ -73,8 +73,10 @@ struct StoryListScreen<Extra: View>: View {
                 LazyVStack(spacing: Metrics.itemSpacing) {
                     ForEach(stories) { story in
                         StoryRow(story: story) {
+                            router.remember(story.persistentModelID)
                             router.push(.player(.single(story)))
                         }
+                        .id(story.persistentModelID)
                     }
                 }
             }

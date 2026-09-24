@@ -2,7 +2,8 @@ import SwiftUI
 
 /// The way into the family area. If he lands here by accident, the biggest
 /// thing on the screen takes him home. If the family code was reset from the
-/// iPhone's Settings app, this is where the family chooses a new one.
+/// iPhone's Settings app, the family taps "Set a new code" and chooses one,
+/// so a new code is never set by chance.
 struct FamilyGateView: View {
     @Environment(Router.self) private var router
     @Environment(AppState.self) private var appState
@@ -11,6 +12,7 @@ struct FamilyGateView: View {
     @State private var entered = ""
     @State private var newCode = ""
     @State private var note: String?
+    @State private var isSettingNewCode = false
 
     private var isChoosingNewCode: Bool {
         !services.familyLock.isCodeSet
@@ -29,13 +31,38 @@ struct FamilyGateView: View {
                 .fill(Palette.hairline)
                 .frame(height: 2)
                 .padding(.vertical, 4)
-            Text(prompt)
-                .appFont(.caption)
-                .foregroundStyle(Palette.ink)
-                .fixedSize(horizontal: false, vertical: true)
-            CodeDots(count: entered.count)
-                .frame(maxWidth: .infinity)
-            CodePad(onDigit: add, onDelete: deleteLast)
+            if isChoosingNewCode, !isSettingNewCode {
+                Text("The family code was reset.")
+                    .appFont(.caption)
+                    .foregroundStyle(Palette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                BigButton("Set a new code", systemImage: Symbols.lock, tone: .outline, size: .compact) {
+                    isSettingNewCode = true
+                }
+            } else {
+                Text(prompt)
+                    .appFont(.caption)
+                    .foregroundStyle(Palette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                CodeDots(count: entered.count)
+                    .frame(maxWidth: .infinity)
+                CodePad(onDigit: add, onDelete: deleteLast)
+                if !isChoosingNewCode {
+                    Text("Forgot the code? In the iPhone\u{2019}s Settings app, open Apps, then My Story, and turn on Reset family code. Nothing is deleted.")
+                        .appFont(.caption)
+                        .foregroundStyle(Palette.softInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 4)
+                }
+            }
+        }
+        // A reset from the Settings app can arrive while this is open: start
+        // cleanly rather than taking typed digits as a new code.
+        .onChange(of: services.familyLock.isCodeSet) { _, _ in
+            entered = ""
+            newCode = ""
+            note = nil
+            isSettingNewCode = false
         }
     }
 

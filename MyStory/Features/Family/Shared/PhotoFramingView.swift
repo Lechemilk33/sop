@@ -5,6 +5,8 @@ import UIKit
 struct FramingSession: Identifiable {
     let id = UUID()
     let image: UIImage
+    /// The stored copy of the photo; the square is cut from it on Use Photo.
+    let photoData: Data
     /// Where the square starts.
     let framing: PortraitFraming
     /// Around the faces, for "Start again".
@@ -13,7 +15,9 @@ struct FramingSession: Identifiable {
 
 /// Move and zoom a photo so the person's face fills the square he'll see in
 /// My people. This is for the family, so it uses drag and pinch like the
-/// iPhone's own photo tools, with buttons as well.
+/// iPhone's own photo tools, with buttons as well. Cancel changes nothing:
+/// a new photo is only used on Use Photo. The sheet can't be swiped away,
+/// so dragging the photo down never closes it.
 struct PhotoFramingView: View {
     let session: FramingSession
     let onDone: (PortraitFraming) -> Void
@@ -54,20 +58,24 @@ struct PhotoFramingView: View {
                                 .strokeBorder(Palette.edge, lineWidth: Metrics.tappableBorder)
                         )
                         .contentShape(Rectangle())
+                        // Each gesture keeps its own change when it ends, so
+                        // lifting one finger never makes the photo jump back.
                         .gesture(
-                            SimultaneousGesture(
-                                DragGesture().updating($dragTranslation) { value, state, _ in
+                            DragGesture()
+                                .updating($dragTranslation) { value, state, _ in
                                     state = value.translation
-                                },
-                                MagnifyGesture().updating($pinch) { value, state, _ in
-                                    state = value.magnification
                                 }
-                            )
-                            .onEnded { value in
-                                let translation = value.first?.translation ?? .zero
-                                let magnification = value.second?.magnification ?? 1
-                                framing = framing.zoomed(by: magnification).panned(by: translation, viewSide: side)
-                            }
+                                .onEnded { value in
+                                    framing = framing.panned(by: value.translation, viewSide: side)
+                                }
+                                .simultaneously(with: MagnifyGesture()
+                                    .updating($pinch) { value, state, _ in
+                                        state = value.magnification
+                                    }
+                                    .onEnded { value in
+                                        framing = framing.zoomed(by: value.magnification)
+                                    }
+                                )
                         )
                         .accessibilityLabel("The photo, framed")
                 }
@@ -112,5 +120,6 @@ struct PhotoFramingView: View {
                 }
             }
         }
+        .interactiveDismissDisabled()
     }
 }

@@ -4,7 +4,7 @@ A private iPhone app where Dave (a stand-in name) records his life stories in hi
 
 Clickable mockup of every screen: https://claude.ai/artifact/GC9B2p2PyC9YXgTfrBk7VT (private until shared from its Share menu).
 
-Status: Phase 1 is built, and round 2 is done after the family's first try: a calmer, more grown-up look using Liquid Glass; his own stories with names he chooses, not only answers to questions; organizing stories by name, people, chapter and photo; and people's photos framed around their faces. The app lives in `MyStory/`, and the README explains how to run it and put it on his iPhone.
+Status: Phase 1 is built, and round 2 is done after the family's first try: a calmer, more grown-up look using Liquid Glass; his own stories with names he chooses, not only answers to questions; organizing stories by name, people, chapter and photo; and people's photos framed around their faces. Round 3 was a bug hunt across his screens, the family area, stored data and audio (see "Round 3 fixes" below). The app lives in `MyStory/`, and the README explains how to run it and put it on his iPhone.
 
 ## Who it's for
 
@@ -34,6 +34,9 @@ Most dementia-specific evidence comes from small or qualitative studies. Where a
 | No timers, pop-ups, streaks, badges or scores. | W3C cognitive accessibility guidance: limit interruptions, avoid timeouts. (No streaks/badges is our inference.) |
 | Nothing he taps can delete a story. He can name his stories, choose who's in them, move them between chapters and make chapters; deleting only happens in the family area, behind a code. | People with dementia prefer preset easy modes to configuring things (Dixon et al. 2022), so nothing needs setting up, but choosing what his stories are called and where they go supports his sense of control (Suijkerbuijk et al. 2019). The family asked for it. A code, not a hidden gesture he could trigger by accident, guards deleting. |
 | He can tell his own story, not only answer a question, and call it whatever he likes (or skip naming it). | Open invitations respect his choice of what matters; questions stay available as cues, because cued recall is easier than free recall. Naming is optional so it never blocks a story. |
+| A chapter he made is asked about in its own words ("Tell me a story about “Fishing trips”"), not with questions from other chapters. | A question about his first job would be filed under Fishing trips. (Our inference.) |
+| While a story plays, the screen stays on; paused, it can sleep. Taking out headphones pauses it, and AirPods and the Lock Screen can pause it. | He watches who's in the story and reads along, and unlocking the phone just to pause is a barrier. Apple asks apps to pause when headphones go, so private stories never play out loud by surprise. (Keeping the screen on is our inference; Apple allows it for apps that show content while little is tapped.) |
+| The family area closes itself once the phone has been away for two minutes, not the moment it locks. | Closing on every lock lost the family's work mid-task, like a copy being saved or a hello being recorded. Two minutes is our compromise with never leaving it open for him to find. |
 | Keep the layout the same between updates. | Relearning after updates was a key problem (Dixon et al. 2022). |
 | Build it with him. Show him each version in short sessions, with his own photos and stories. | People with dementia can shape content, design and the core idea, and co-design strengthens their sense of control (Suijkerbuijk et al. 2019). Early-onset Alzheimer's is more often atypical (for example, visual), so test with him rather than assume. |
 
@@ -54,15 +57,15 @@ Calm, warm and grown-up, like a good photo album: warm neutrals, one deep color 
 | Soft ink | `#443E39` | Second line of text | 8.1:1 on paper deep, 7.2:1 on the glow |
 | Edge | `#766B5F` | Edge of anything tappable | 4.0:1 on paper deep, 5.2:1 on white |
 | Hairline | `#DCD4C9` | Soft edge of things you can't tap | |
-| Brick | `#8E2F1A` | Tell a story | white text 8.2:1 |
+| Brick | `#842C18` | Tell a story | white text 8.9:1 |
 | Blue | `#122F5C` | My people | white text 13.2:1 |
 | Marigold | `#E0A33A` | My stories, and anything you listen to | ink text 7.8:1 |
 | Marigold rim | `#6E4B0E` | Edge of gold shapes, text on gold tints | 6.0:1 on paper deep |
-| Green | `#215A33` | Saved, chosen | white text 8.2:1 |
+| Green | `#1E5530` | Saved, chosen | white text 8.8:1 |
 
 - Type: the iPhone's own font (San Francisco), scaled with Dynamic Type via `UIFontMetrics` and the family's text size. The family can switch to Atkinson Hyperlegible Next ("Extra-clear letters"), made by the Braille Institute for readers with low vision.
-- Glass: `glassEffect(.regular)` for quiet buttons and Home's tiles, tinted glass over solid color for main actions, 2 pt edges (3 pt with Increase Contrast). Not `.interactive()`, so nothing bounces when pressed. White words sit at 8:1 on the solid color, so they stay above 7:1 where the glass lightens it.
-- Home's tiles each carry a solid stripe and a large medallion in the place's color (brick L*34, navy L*20, gold L*71), so the places differ in lightness at a glance.
+- Glass: `glassEffect(.regular)` for quiet buttons and Home's tiles, tinted glass over solid color for main actions, 2 pt edges (3 pt with Increase Contrast). Not `.interactive()`, so nothing bounces when pressed. White words sit at almost 9:1 on the solid color, so they stay above 7:1 even where the glass lightens it by 7%. Pressing darkens a button a little (less on gold, so its dark words keep 7:1).
+- Home's tiles each carry a solid stripe and a large medallion in the place's color (brick L*31, navy L*20, gold L*71), so the places differ in lightness at a glance.
 - Icons: SF Symbols, always paired with a word, in colored medallions that never look tappable on their own.
 - Always light mode (`.preferredColorScheme(.light)`). Honor Increase Contrast, Bold Text, Reduce Motion and Reduce Transparency.
 
@@ -71,10 +74,10 @@ Calm, warm and grown-up, like a good photo album: warm neutrals, one deep color 
 His side (see the mockup):
 
 - **Home**: "Good morning, Dave" and the date. Three glass tiles: Tell a story, My people, My stories. A small "For family" button.
-- **Tell a story**: two choices, "My own story" or "Answer a question". His own story can be given any name (typed, or said with the keyboard's microphone), or none. A question shows in big type with "Read it to me", "Start talking" and "A different question". Then the listening screen: the story's name or the question stays visible, a big "I'm finished" button, and no Home button, so a stray tap can't cut a story short. Then "Saved. “The summer at the lake” is in My stories, under More stories." with Listen to it, Name it and add people (a name, then the people, one screen each, back to Saved), and Tell another story.
+- **Tell a story**: two choices, "My own story" or "Answer a question". His own story can be given any name (typed, or said with the keyboard's microphone), or none. A question shows in big type with "Read it to me", "Start talking" and "A different question". Then the listening screen: the story's name or the question stays visible, a big "I'm finished" button, and no Home button, so a stray tap can't cut a story short. While it saves, the screen says "Saving your story" and has nothing to tap. Then "Saved. “The summer at the lake” is in My stories, under More stories." with Listen to it, Name this story (a name, then the people, one screen each, back to Saved), and Tell another story.
 - **About this story** (while listening): its name, who's in it, its chapter and its photo, each a tap away from changing, from the family's photos. He can make a new chapter with a name and one of six pictures.
-- **My people**: a grid of photos framed around each face, with names and "my daughter", "my brother". A person's page: a big framed photo, name, relationship, two or three facts, "Hear Emily" (a voice message she recorded), "Stories with Emily", and "Tell a story about Emily".
-- **My stories**: "Play me a story" (one tap, no choices), All my stories, then the chapters, including ones he made. A chapter: "Play them all", its stories, and (for chapters he made) changing its name or picture. A story: its name, big play/pause right under it, who's in it, the whole photo, his words to read along, and About this story.
+- **My people**: a grid of photos framed around each face, with names and "my daughter", "my brother". A person's page: their framed photo beside their name and relationship, then "Hear Emily" (a voice message she recorded) and "Stories with Emily", so what he can do is on screen without scrolling, then two or three facts, and "Tell a story about Emily".
+- **My stories**: "Play me a story" (one tap, no choices), All my stories, then the chapters, including ones he made. A chapter: "Play them all", its stories, and (for chapters he made) changing its name or picture. A story: its name, a big Play/Pause button with its word inside, right under it, who's in it, the whole photo, his words to read along, and About this story. Coming back to a list shows the story or chapter he last opened, not the top.
 
 Family side, behind a 4-digit code:
 
@@ -109,11 +112,13 @@ Tips card for whoever sits with him (in the family area):
 - **Platform**: native SwiftUI for iOS 26 and later. iOS 27 is current. Both run on iPhone 11 / SE (2nd gen) and newer.
 - **Data**: SwiftData, synced to his private iCloud for backup (`ModelConfiguration(cloudKitDatabase: .private(...))`). CloudKit rules: no unique attributes, every relationship optional, defaults on everything.
 - **Storage**: audio is about 10 MB per 20 minutes (AAC, mono, about 64 kbps) and counts against his iCloud storage. Plan on iCloud+ 50 GB.
-- **Recording**: AVAudioRecorder to `.m4a`.
-  - If a phone call interrupts, save what was recorded and continue into a new file.
-  - Keep the screen awake while recording.
-  - Enable the background audio mode so a screen lock doesn't cut him off.
-  - Silence never stops it.
+- **Recording**: AVAudioRecorder to an uncompressed, crash-safe `.caf`, turned into `.m4a` when he finishes. The raw file is only deleted once the `.m4a` is as long as it.
+  - A small note beside each recording holds its name, question, chapter, photo and people, so a story rescued after the app closed keeps them.
+  - A phone call pauses it. It carries on by itself afterwards only if he's looking at the app; otherwise he sees "Keep going".
+  - Keep the screen awake while recording. Enable the background audio mode so a screen lock doesn't cut him off.
+  - Finishing asks for background time before the microphone stops. If the time runs out, the recording stays on disk and becomes a story the next time the app opens.
+  - Silence never stops it. It stops by itself only to protect the story (the iPhone nearly full, the system stopping the microphone, or two hours).
+- **Playback**: one story, or "Play them all" with a short pause between stories that still carries on with the phone locked. Calls, Siri announcements and navigation pause it, and it resumes when the iPhone says so. Recordings are read through a short-lived context, so a long list doesn't fill memory.
 - **Transcription**: on the phone with Apple's SpeechAnalyzer/SpeechTranscriber (iOS 26+).
   - Needs a one-time language download.
   - Reportedly unavailable on iPhone 11 / SE (2nd gen); fall back to DictationTranscriber there.
@@ -138,6 +143,17 @@ Tips card for whoever sits with him (in the family area):
 - `Question`: text, chapter, asked by (Person), recorded question audio, built-in or family-added, times shown.
 - `Story`: title, audio file, duration, transcript and its status, recorded at, chapter, the question it answered, asked by, people in it, photos, year (optional), told with (Person).
 - `Photo`: image, caption, year (optional), people, chapter.
+
+## Round 3 fixes
+
+A review of every screen, the family area, the stored data and the audio turned up no lost stories, but these could have gone wrong and now can't:
+
+- **Listening**: a story playing on a locked phone is no longer cut off when he unlocks it later, and "Play them all" carries on to the next story with the phone locked. Taking out headphones pauses the story. A late "finished" from an old recording can't stop a new one.
+- **Telling**: finishing a long story with the phone locked can no longer lose its name, question, chapter or people. A phone call pauses a story instead of ending it, and never restarts the microphone while the phone is locked. The screen says "Saving your story" while it saves, and every tap is felt, even while recording.
+- **Storage**: a nearly full iPhone stops a long story with room to spare, and the app no longer retries a story it can't store every time it opens. Saved copies skip anything deleted while they're made and can't be made twice at once.
+- **Questions**: reworded built-in questions reach phones that already have them, and questions from the first version are merged so he isn't asked the same thing twice. iCloud copies of chapters keep the family's names, pictures and order.
+- **Family area**: deleting from an editor waits until the editor has closed; a photo still arriving can't be missed by Save; a new photo is only used after Use Photo; a hello being recorded survives scrolling; photo questions switch off instead of disappearing with his answers; years must be real years.
+- **His screens**: the largest text sizes get layouts that fit (the main buttons scroll, Home's tiles stack, pictures come in fewer columns), a person's page shows what he can do first, his typed names are kept when he goes back or Home, and there are no mentions of a "Family area" he can't see.
 
 ## Getting it onto his iPhone
 

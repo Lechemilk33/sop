@@ -38,7 +38,7 @@ struct FamilyPhotosView: View {
                             NavigationLink {
                                 PhotoEditorView(photo: photo)
                             } label: {
-                                StoredImage(cacheKey: photo.thumbnailCacheKey, data: photo.thumbnailData, placeholderSymbol: Symbols.photo)
+                                StoredImage(cacheKey: photo.thumbnailCacheKey, data: photo.thumbnailData, placeholderSymbol: Symbols.photo, maxPixelSize: 320)
                                     .frame(height: 104)
                                     .frame(maxWidth: .infinity)
                                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -96,18 +96,32 @@ struct PhotoEditorView: View {
     @State private var selectedPeople: Set<PersistentIdentifier> = []
     @State private var asksAboutIt = true
     @State private var isConfirmingDelete = false
+    /// Deleted only once the editor has closed, so nothing on screen is
+    /// still showing the photo when it's removed.
+    @State private var deleteWhenGone = false
     @State private var hasLoaded = false
+
+    private var yearIsValid: Bool {
+        yearText.trimmingCharacters(in: .whitespaces).isEmpty || StoryYears.parse(yearText) != nil
+    }
 
     var body: some View {
         Form {
             Section {
-                StoredImage(cacheKey: photo.imageCacheKey, data: photo.imageData ?? photo.thumbnailData, placeholderSymbol: Symbols.photo)
+                // The whole photo, never cropped, so everyone in it can be seen.
+                StoredImage(
+                    cacheKey: photo.imageCacheKey,
+                    data: photo.imageData ?? photo.thumbnailData,
+                    placeholderSymbol: Symbols.photo,
+                    contentMode: .fit,
+                    maxPixelSize: ImageCache.largePixels
+                )
                     .frame(height: 260)
                     .frame(maxWidth: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
             }
-            Section("About this photo") {
+            Section {
                 TextField("A few words, like \u{201C}The lake house, summer\u{201D}", text: $caption, axis: .vertical)
                     .lineLimit(1...3)
                 TextField("Roughly what year? (optional)", text: $yearText)
@@ -117,6 +131,13 @@ struct PhotoEditorView: View {
                     ForEach(chapters) { chapter in
                         Text(chapter.name).tag(Optional(chapter))
                     }
+                }
+            } header: {
+                Text("About this photo")
+            } footer: {
+                if !yearIsValid {
+                    Text("Use four digits, like 1975.")
+                        .foregroundStyle(Palette.brick)
                 }
             }
             Section("Who's in it") {
@@ -141,11 +162,20 @@ struct PhotoEditorView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save", action: save)
+                    .disabled(!yearIsValid)
             }
         }
         .onAppear(perform: load)
+        .onDisappear {
+            if deleteWhenGone {
+                context.delete(photo)
+                try? context.save()
+            }
+        }
         .confirmationDialog("Delete this photo?", isPresented: $isConfirmingDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive, action: delete)
+        } message: {
+            Text("The photo and its question are removed. Stories he told about it are kept, without the photo.")
         }
     }
 
@@ -156,34 +186,31 @@ struct PhotoEditorView: View {
         yearText = photo.year.map { String($0) } ?? ""
         chapter = photo.chapter
         selectedPeople = Set((photo.people ?? []).map(\.persistentModelID))
-        asksAboutIt = photo.promptQuestion != nil
+        asksAboutIt = photo.promptQuestion.map { !$0.isHidden } ?? false
     }
 
     private func save() {
-        photo.caption = caption.trimmingCharacters(in: .whitespacesAndNewlines)
-        photo.year = Int(yearText.trimmingCharacters(in: .whitespaces))
-        photo.chapter = chapter
+        photo.caption = StoryTitles.cleaned(caption)
+        photo.year = StoryYears.parse(yearText)
+        photo.chapter = context.existing(chapter)
         photo.people = people.filter { selectedPeople.contains($0.persistentModelID) }
-        if asksAboutIt {
-            let question: Question
-            if let existing = photo.promptQuestion {
-                question = existing
-            } else {
-                question = Question(text: "Tell me about this photo.", chapter: nil)
-                context.insert(question)
-                question.photo = photo
-            }
-            question.chapter = chapter
-        } else if let existing = photo.promptQuestion {
-            context.delete(existing)
+        if let existing = photo.promptQuestion {
+            // Switched off, the question is only hidden, so the stories he
+            // told about the photo stay linked to it and it isn't asked anew.
+            existing.isHidden = !asksAboutIt
+            existing.chapter = photo.chapter
+        } else if asksAboutIt {
+            let question = Question(text: "Tell me about this photo.", chapter: nil)
+            context.insert(question)
+            question.photo = photo
+            question.chapter = photo.chapter
         }
         try? context.save()
         dismiss()
     }
 
     private func delete() {
-        context.delete(photo)
-        try? context.save()
+        deleteWhenGone = true
         dismiss()
     }
 }
