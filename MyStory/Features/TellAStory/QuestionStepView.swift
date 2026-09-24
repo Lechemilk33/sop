@@ -1,19 +1,16 @@
 import SwiftUI
 
-/// Step 1: one question, "Read it to me", "Start talking", "A different question".
+/// One question, "Read it to me", "Start talking", "A different question".
 struct QuestionStepView: View {
     let flow: TellAStoryFlow
 
     @Environment(QuestionReader.self) private var reader
 
     var body: some View {
-        ScreenScaffold {
-            SectionHeader(title: "Tell a story", systemImage: Symbols.tell, tone: .brick)
+        ScreenScaffold(back: backAction) {
+            SectionHeader(title: "Answer a question", systemImage: Symbols.question, tone: .brick)
             if let note = flow.note {
-                Text(note)
-                    .appFont(.bodyBold)
-                    .foregroundStyle(Palette.ink)
-                    .fixedSize(horizontal: false, vertical: true)
+                Instruction(note)
             }
             PromptCard(prompt: flow.prompt)
             BigButton(
@@ -33,6 +30,13 @@ struct QuestionStepView: View {
                     flow.nextQuestion()
                 }
             }
+        }
+    }
+
+    private var backAction: BackAction? {
+        guard flow.canGoBackToChoice else { return nil }
+        return BackAction(title: "Tell a story") {
+            flow.backToChoice()
         }
     }
 }

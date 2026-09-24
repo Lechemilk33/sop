@@ -7,13 +7,15 @@ A SwiftUI + SwiftData iPhone app (iOS 26+) for a man with early-stage Alzheimer'
 These come from dementia research; don't trade them away for convenience.
 
 - At most three or four main choices per screen; one main thing to do.
-- Every tappable thing uses `BigButton`, `NavPill` or `TappableRow`, all of which go through `TapGuard` (ignores double taps, gives a haptic). Main buttons are 88–136 pt tall; nothing is under 64 pt. People shown on a story (`PersonBadge`) are not tappable.
+- Every tappable thing uses `BigButton`, `PlaceTile`, `NavPill`, `TappableRow`, `PersonCard` or the small choice tiles built the same way, all of which go through `TapGuard` (ignores double taps, gives a haptic). Main buttons are 84–128 pt tall; nothing is under 64 pt. People shown on a story (`PersonBadge`) and medallions are not tappable.
 - Taps only. No swipe, long-press, double-tap, drag or pinch gestures, and no swipe-back navigation. Navigation is `Router` (push, pop, go home).
 - Every screen uses `ScreenScaffold`: Home in the top-right corner, labeled back button, main actions pinned at the bottom. Content fits on one screen without scrolling whenever it can. The recording screen deliberately has no Home button, and recording never stops on its own because of silence.
-- Colors only from `Palette`/`Tone`. Dark text on cream, light mode only. Text ≥ 7:1 contrast, tappable outlines ≥ 3:1. The three places (brick = Tell, blue = People, marigold = Life) differ in lightness.
-- Text only through `.appFont(...)`. Nothing smaller than 20 pt on his side. Styles scale with Dynamic Type and the family's text size.
-- Every icon sits next to a word. People are shown with real photos, their name and "My daughter"-style relationship.
-- No timers, auto-advance, pop-ups, badges, streaks or scores. Nothing he taps can delete anything; deleting and editing live in the family area.
+- Colors only from `Palette`/`Tone`. Dark text on a warm light background, light mode only. Text ≥ 7:1 contrast, tappable edges ≥ 3:1. The three places (brick = Tell, blue = People, marigold = Stories) differ in lightness. `RootView` sets `placeTone` from `Screen.place`, which tints the background glow.
+- Liquid Glass only on controls, through `GlassActionStyle`, `NavPill` and `PlaceTile`: colored glass always sits on the solid tone color (so white words keep 7:1), frosted glass always has a 2 pt edge. Content (rows, cards, photos) is solid, not glass.
+- Text only through `.appFont(...)`. Nothing smaller than 20 pt on his side. Styles scale with Dynamic Type and the family's text size, and switch to Atkinson Hyperlegible with "Extra-clear letters".
+- Every icon sits next to a word. People are shown with real photos framed around the face (`thumbnailData` is a face-framed square; `photoData` is the whole photo), their name and "My daughter"-style relationship. Other photos are shown whole with `WholePhoto`, never cropped.
+- No timers, auto-advance, pop-ups, badges, streaks or scores. Nothing he taps can delete anything. He can name, sort and add people to stories and make chapters (Features/Organize); deleting lives only in the family area.
+- A screen that goes back somewhere other than the previous screen says so with `ScreenScaffold(back: BackAction(...))`.
 - Questions invite ("Tell me about…"), never quiz ("Do you remember…?", "What was the name…", "What's the very first…"), and never ask about the last few days, which fade first. `QuestionBankTests` enforces this for built-in questions and person prompts.
 - The recording is the story. Transcripts are only for reading along; never generate, summarize or rewrite his words or photos.
 
@@ -21,7 +23,7 @@ These come from dementia research; don't trade them away for convenience.
 
 - Models are CloudKit-safe: every property has a default, every relationship is optional, inverses are declared on one side only, no unique constraints. Keep it that way; iCloud sync is switched on with the `MYSTORY_ICLOUD_SYNC` build setting.
 - Big blobs (audio, photos) use `@Attribute(.externalStorage)`.
-- Built-in chapter and question keys in `QuestionBank` must never change once shipped. Each question's key is written out by hand, never worked out from its position, so questions can be reworded, added or reordered safely.
+- Chapters he or the family make have an empty `key`; built-in chapter and question keys in `QuestionBank` must never change once shipped. Each question's key is written out by hand, never worked out from its position, so questions can be reworded, added or reordered safely.
 - When sync creates duplicates, `Seeder` keeps the copy with the smallest `uuid`, the same choice on every device. Every story always belongs to a chapter (loose ones go to More stories).
 - Anything that holds a model across an `await` must look it up again afterwards, because the family may have deleted it in the meantime (see `TranscriptionService`).
 - Never delete a recording automatically unless it is certainly shorter than a second and a half. A recording that can't be stored is kept on disk and rescued later (`RecordingRecovery`).
@@ -29,4 +31,4 @@ These come from dementia research; don't trade them away for convenience.
 ## Checking changes
 
 - Xcode: ⌘B, then ⌘U.
-- Without a Mac, the Foundation-only files (`Support/Formatting.swift`, `Services/Questions/QuestionPicker.swift`, `Persistence/QuestionBank.swift`, `Services/Export/FileNaming.swift`, `ArchiveManifest.swift`, `ArchiveHTML.swift`, `AudioFileType.swift`) and their tests build with a Linux Swift toolchain. Put them in a Swift package whose library target is named `MyStory`, then run `swift test`. `Services/Family/FamilyLock.swift` and its tests also run there if you add a small stand-in `CryptoKit` target that provides `SHA256.hash(data:)`. Every file should at least pass `swiftc -parse`.
+- Without a Mac, the Foundation-only files (`Support/Formatting.swift`, `Services/Questions/QuestionPicker.swift`, `Persistence/QuestionBank.swift`, `Services/Export/FileNaming.swift`, `ArchiveManifest.swift`, `ArchiveHTML.swift`, `AudioFileType.swift`, `Services/Media/PortraitFraming.swift`, `DesignSystem/Symbols.swift`) and their tests build with a Linux Swift toolchain. Put them in a Swift package whose library target is named `MyStory`, then run `swift test`. `Services/Family/FamilyLock.swift` and its tests also run there if you add a small stand-in `CryptoKit` target that provides `SHA256.hash(data:)`. Every file should at least pass `swiftc -parse`.

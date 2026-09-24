@@ -1,12 +1,14 @@
 import Foundation
 
-/// What "Tell a story" should ask about.
+/// Where "Tell a story" was opened from, which decides what it offers.
 enum PromptSeed {
-    /// The next question from all chapters.
+    /// From Home: his own story, or a question from any chapter.
+    case start
+    /// Straight to a question from any chapter.
     case next
     /// A story about one person ("Tell a story about Emily").
     case about(Person)
-    /// The next question from one chapter.
+    /// A story for one chapter.
     case chapter(Chapter)
 }
 

@@ -1,44 +1,57 @@
 import SwiftUI
 
-/// Every color in the app. Values and reasons are in PLAN.md → "Look and feel".
+/// Every color in the app. Calm, warm neutrals with one deep color per place,
+/// used for small accents rather than big blocks, so it reads as grown-up.
+/// Values and reasons are in PLAN.md → "Look and feel".
 ///
-/// - Text is near-black on warm cream (15.8:1). Soft ink is still 8.3:1.
-/// - Anything tappable has an outline of at least 3:1 against the background.
-/// - The three places (Tell, People, Life) differ in lightness as well as hue,
-///   because Alzheimer's weakens contrast perception and blue–green judgments.
+/// - Text is near-black on warm white (13:1 or more). Soft ink is 7.2:1 or
+///   more everywhere it's used, including over the soft place glows.
+/// - Anything tappable has an edge of at least 3:1 against what's behind it.
+/// - The three places (Tell, People, Stories) differ in lightness as well as
+///   hue, because Alzheimer's weakens contrast perception and blue–green
+///   judgments: brick L*37, navy L*26, gold L*71.
 enum Palette {
-    static let paper = Color(hex: 0xFBF5EA)
+    /// The background gradient, top to bottom.
+    static let paper = Color(hex: 0xF5F1EB)
+    static let paperDeep = Color(hex: 0xE8E1D7)
     static let card = Color.white
-    static let ink = Color(hex: 0x26190F)
-    static let softInk = Color(hex: 0x574636)
-    /// Outline of anything tappable.
-    static let edge = Color(hex: 0x9C8466)
-    /// Soft outline of things that can't be tapped.
-    static let hairline = Color(hex: 0xDCCBB0)
 
-    static let brick = Color(hex: 0x9F3118)
-    static let brickTint = Color(hex: 0xF6DDD3)
-    /// Deep navy, so it differs from brick in lightness as well as hue.
-    static let blue = Color(hex: 0x122F5C)
-    static let marigold = Color(hex: 0xF2B535)
-    static let marigoldRim = Color(hex: 0x7A5410)
-    static let marigoldTint = Color(hex: 0xF8E6B8)
-    static let green = Color(hex: 0x276336)
-    static let greenTint = Color(hex: 0xDDE9D6)
+    static let ink = Color(hex: 0x1C1A17)
+    static let softInk = Color(hex: 0x443E39)
+    /// Edge of anything tappable.
+    static let edge = Color(hex: 0x82786C)
+    /// Soft edge of things that can't be tapped.
+    static let hairline = Color(hex: 0xDCD4C9)
 
-    static let photoBackdrop = Color(hex: 0xEADCC6)
-    static let photoFigure = Color(hex: 0xA48C6C)
+    /// Tell a story.
+    static let brick = Color(hex: 0x9A331C)
+    static let brickTint = Color(hex: 0xF3DDD5)
+    /// My people. Deep navy, so it differs from brick in lightness.
+    static let blue = Color(hex: 0x1F3E6E)
+    static let blueTint = Color(hex: 0xDCE4EF)
+    /// My stories. Light gold with dark ink on it.
+    static let marigold = Color(hex: 0xE0A33A)
+    /// Text and icons on gold tints.
+    static let marigoldRim = Color(hex: 0x6E4B0E)
+    static let marigoldTint = Color(hex: 0xF5E6C8)
+    static let green = Color(hex: 0x265E36)
+    static let greenTint = Color(hex: 0xDCEADF)
+
+    static let photoBackdrop = Color(hex: 0xE6DFD4)
+    static let photoFigure = Color(hex: 0x9A9084)
 }
 
-/// The fill, text and rim colors for each kind of button.
+/// The colors for each kind of button and place.
 enum Tone {
     case brick
     case blue
     case marigold
     case green
     case ink
+    /// A quiet button: frosted glass with dark words.
     case outline
 
+    /// The solid color under a prominent button's glass.
     var fill: Color {
         switch self {
         case .brick: Palette.brick
@@ -46,7 +59,7 @@ enum Tone {
         case .marigold: Palette.marigold
         case .green: Palette.green
         case .ink: Palette.ink
-        case .outline: Palette.card
+        case .outline: .clear
         }
     }
 
@@ -57,15 +70,35 @@ enum Tone {
         }
     }
 
-    var rim: Color {
+    /// The place's color for icons and medallions.
+    var accent: Color {
         switch self {
         case .brick: Palette.brick
         case .blue: Palette.blue
-        case .marigold: Palette.marigoldRim
+        case .marigold: Palette.marigold
         case .green: Palette.green
-        case .ink: Palette.ink
-        case .outline: Palette.edge
+        case .ink, .outline: Palette.ink
         }
+    }
+
+    /// The color of an icon sitting on `accent`.
+    var onAccent: Color {
+        self == .marigold ? Palette.ink : .white
+    }
+
+    /// A pale version of the place's color.
+    var tint: Color {
+        switch self {
+        case .brick: Palette.brickTint
+        case .blue: Palette.blueTint
+        case .marigold: Palette.marigoldTint
+        case .green: Palette.greenTint
+        case .ink, .outline: Palette.hairline
+        }
+    }
+
+    var isProminent: Bool {
+        self != .outline
     }
 }
 

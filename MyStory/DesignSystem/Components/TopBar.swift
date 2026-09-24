@@ -34,7 +34,8 @@ struct TopBar: View {
     }
 }
 
-/// A labeled navigation button, at least 60 pt tall.
+/// A labeled glass navigation button, 64 pt tall, like the iPhone's own
+/// toolbar buttons but bigger and always with words.
 struct NavPill: View {
     let title: String
     let systemImage: String
@@ -44,13 +45,12 @@ struct NavPill: View {
     @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
         Button {
             TapGuard.perform(action)
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.system(size: 20, weight: .semibold))
                     .accessibilityHidden(true)
                 Text(title)
                     .appFont(.compactButton)
@@ -58,11 +58,16 @@ struct NavPill: View {
                     .multilineTextAlignment(.leading)
             }
             .foregroundStyle(Palette.ink)
-            .padding(.horizontal, 18)
+            .padding(.horizontal, 20)
             .frame(minHeight: Metrics.navButtonHeight)
-            .background(shape.fill(Palette.card))
-            .overlay(shape.strokeBorder(contrast == .increased ? Palette.ink : Palette.edge, lineWidth: Metrics.tappableBorder))
-            .contentShape(shape)
+            .contentShape(Capsule())
+            .glassEffect(.regular.interactive(), in: Capsule())
+            .overlay(
+                Capsule().strokeBorder(
+                    contrast == .increased ? Palette.ink : Palette.edge,
+                    lineWidth: contrast == .increased ? Metrics.increasedContrastBorder : Metrics.tappableBorder
+                )
+            )
         }
         .buttonStyle(PressDimStyle())
         .accessibilityLabel(Text(accessibilityText))

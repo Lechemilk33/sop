@@ -35,11 +35,13 @@ struct FamilySettingsView: View {
                     .appFont(.greeting)
                     .foregroundStyle(Palette.ink)
                     .environment(\.textScale, settings.textSize.scale)
+                    .environment(\.usesExtraClearLetters, settings.usesExtraClearLetters)
+                Toggle("Extra-clear letters", isOn: $settings.usesExtraClearLetters)
                 Toggle("Read each question out loud", isOn: $settings.readQuestionsAutomatically)
             } header: {
                 Text("Reading")
             } footer: {
-                Text("Text also grows with the iPhone's own text size (Settings → Accessibility → Display & Text Size). Reading can get harder later in the day, so go bigger if in doubt.")
+                Text("Extra-clear letters use Atkinson Hyperlegible, a font designed for low vision, instead of the iPhone's own. Text also grows with the iPhone's text size (Settings → Accessibility → Display & Text Size). Reading can get harder later in the day, so go bigger if in doubt.")
             }
 
             Section("Microphone") {
@@ -105,7 +107,7 @@ struct FamilySettingsView: View {
 
             Section("About") {
                 LabeledContent("Version", value: Bundle.main.appVersion)
-                LabeledContent("Font", value: "Atkinson Hyperlegible Next (SIL OFL)")
+                LabeledContent("Extra-clear letters", value: "Atkinson Hyperlegible Next (SIL OFL)")
             }
         }
         .familyBackground()

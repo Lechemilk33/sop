@@ -61,6 +61,11 @@ struct FamilyAreaView: View {
                         FamilyMenuRow(title: "All stories", systemImage: "book")
                     }
                     NavigationLink {
+                        FamilyChaptersView()
+                    } label: {
+                        FamilyMenuRow(title: "Chapters", systemImage: "folder")
+                    }
+                    NavigationLink {
                         FamilyPeopleView()
                     } label: {
                         FamilyMenuRow(title: "People", systemImage: "person.2")
@@ -102,7 +107,7 @@ struct FamilyAreaView: View {
                 }
             }
         }
-        .tint(Palette.brick)
+        .tint(Palette.blue)
         .onAppear { player.stop() }
     }
 

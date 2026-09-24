@@ -1,32 +1,30 @@
 import SwiftUI
 
-/// Four dots showing how many digits have been typed.
+/// Dots showing how many digits have been typed, like the iPhone's own.
 struct CodeDots: View {
     let count: Int
     var length: Int = FamilyLock.codeLength
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 22) {
             ForEach(0..<length, id: \.self) { index in
-                let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
                 ZStack {
-                    shape.fill(Palette.card)
-                    shape.strokeBorder(Palette.edge, lineWidth: Metrics.tappableBorder)
+                    Circle()
+                        .strokeBorder(Palette.ink, lineWidth: 2)
                     if index < count {
-                        Circle()
-                            .fill(Palette.ink)
-                            .frame(width: 18, height: 18)
+                        Circle().fill(Palette.ink)
                     }
                 }
-                .frame(width: 60, height: 68)
+                .frame(width: 20, height: 20)
             }
         }
+        .padding(.vertical, 8)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("\(count) of \(length) digits entered"))
     }
 }
 
-/// A large number pad, like the phone's own.
+/// A large number pad with round glass keys, like the iPhone's own.
 struct CodePad: View {
     let onDigit: (String) -> Void
     let onDelete: () -> Void
@@ -34,11 +32,12 @@ struct CodePad: View {
     private let rows: [[String]] = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["", "0", "⌫"]]
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             ForEach(rows, id: \.self) { row in
-                HStack(spacing: 12) {
+                HStack(spacing: 14) {
                     ForEach(row, id: \.self) { key in
                         keyView(key)
+                            .frame(maxWidth: .infinity)
                     }
                 }
             }
@@ -47,9 +46,8 @@ struct CodePad: View {
 
     @ViewBuilder
     private func keyView(_ key: String) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
         if key.isEmpty {
-            Color.clear.frame(maxWidth: .infinity, minHeight: Metrics.minimumTarget)
+            Color.clear.frame(width: 78, height: 78)
         } else {
             Button {
                 // Digits skip the tap gate so a code can be typed at normal speed.
@@ -59,17 +57,17 @@ struct CodePad: View {
                 Group {
                     if key == "⌫" {
                         Image(systemName: Symbols.deleteDigit)
-                            .font(.system(size: 26, weight: .bold))
+                            .font(.system(size: 24, weight: .semibold))
                     } else {
                         Text(key)
                             .appFont(.largeButton)
                     }
                 }
                 .foregroundStyle(Palette.ink)
-                .frame(maxWidth: .infinity, minHeight: Metrics.minimumTarget + 8)
-                .background(shape.fill(Palette.card))
-                .overlay(shape.strokeBorder(Palette.edge, lineWidth: Metrics.tappableBorder))
-                .contentShape(shape)
+                .frame(width: 78, height: 78)
+                .contentShape(Circle())
+                .glassEffect(.regular.interactive(), in: Circle())
+                .overlay(Circle().strokeBorder(Palette.edge, lineWidth: Metrics.staticBorder))
             }
             .buttonStyle(PressDimStyle())
             .accessibilityLabel(Text(key == "⌫" ? "Delete" : key))

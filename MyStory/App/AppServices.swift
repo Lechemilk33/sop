@@ -50,6 +50,7 @@ final class AppServices {
         await recoverRecordings(live)
         live.transcription.enqueueUnfinished()
         await live.transcription.refreshReadiness()
+        await PortraitRefresh.runIfNeeded(in: context)
     }
 
     /// Each time the app comes back to the front: apply a family-code reset

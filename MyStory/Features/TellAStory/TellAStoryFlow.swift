@@ -2,11 +2,16 @@ import Foundation
 import Observation
 import SwiftData
 
-/// The "Tell a story" journey: a question, then listening, then "Saved".
+/// The "Tell a story" journey. He chooses his own story (with a name he
+/// picks, or none) or a question; then he talks; then it's saved.
 @MainActor
 @Observable
 final class TellAStoryFlow {
     enum Step {
+        /// "My own story" or "Answer a question".
+        case choose
+        /// Giving his own story a name, if he wants to, before he talks.
+        case naming
         case question
         case recording
         case saved(Story)
@@ -16,9 +21,19 @@ final class TellAStoryFlow {
         case microphoneOff
     }
 
-    private(set) var step: Step = .question
+    enum Kind {
+        /// Whatever he wants to talk about.
+        case own
+        /// An answer to a question.
+        case question
+    }
+
+    private(set) var step: Step = .choose
+    private(set) var kind: Kind = .own
     private(set) var prompt: StoryPrompt = .fallback
-    /// A calm note on the question screen, e.g. after a very short recording.
+    /// The name he gives his own story. Empty means "name it by the date".
+    var ownTitle = ""
+    /// A calm note on the screen before recording, e.g. after a very short recording.
     private(set) var note: String?
     private(set) var isSaving = false
     /// Why the last recording stopped by itself, if it did.
@@ -54,7 +69,53 @@ final class TellAStoryFlow {
         self.reader = reader
         self.transcription = transcription
         self.readsAutomatically = readsAutomatically
+        if case .next = seed {
+            kind = .question
+            prompt = makePrompt()
+            step = .question
+        }
+    }
+
+    /// The person he's telling a story about, if he came from their page.
+    var aboutPerson: Person? {
+        if case .about(let person) = seed { return person }
+        return nil
+    }
+
+    /// The chapter he came from, if any.
+    var seedChapter: Chapter? {
+        if case .chapter(let chapter) = seed { return chapter }
+        return nil
+    }
+
+    /// Whether there's a choice screen to go back to.
+    var canGoBackToChoice: Bool {
+        if case .next = seed { return false }
+        return true
+    }
+
+    // MARK: - Choosing how to start
+
+    func chooseOwnStory() {
+        reader.stop()
+        note = nil
+        kind = .own
+        step = .naming
+    }
+
+    func chooseQuestion() {
+        note = nil
+        kind = .question
         prompt = makePrompt()
+        step = .question
+        readIfAutomatic()
+    }
+
+    /// From naming or a question back to the choice.
+    func backToChoice() {
+        reader.stop()
+        note = nil
+        step = .choose
     }
 
     func toggleReading() {
@@ -63,9 +124,8 @@ final class TellAStoryFlow {
 
     /// Reads the question aloud when the family has turned that on.
     func readIfAutomatic() {
-        if readsAutomatically {
-            reader.read(text: prompt.text, recordedAudio: prompt.askedAudio)
-        }
+        guard case .question = step, readsAutomatically else { return }
+        reader.read(text: prompt.text, recordedAudio: prompt.askedAudio)
     }
 
     func nextQuestion() {
@@ -74,6 +134,8 @@ final class TellAStoryFlow {
         prompt = makePrompt()
         readIfAutomatic()
     }
+
+    // MARK: - Recording
 
     func startRecording() async {
         reader.stop()
@@ -111,7 +173,7 @@ final class TellAStoryFlow {
         if talked > 0, talked < minimumDuration {
             try? FileManager.default.removeItem(at: finished.fileURL)
             note = "That was very short. Take your time and try again."
-            step = .question
+            step = kind == .own ? .naming : .question
             return
         }
 
@@ -121,22 +183,16 @@ final class TellAStoryFlow {
             return
         }
 
-        let story = Story(title: defaultTitle(), promptText: prompt.text)
+        let isAnswer = kind == .question
+        let story = Story(title: storyTitle(), promptText: isAnswer ? prompt.text : "")
         context.insert(story)
         story.audioData = audio
         story.audioFileExtension = finished.fileExtension
         story.duration = talked
-        story.chapter = prompt.chapter ?? defaultChapter()
-        story.question = prompt.question
-        story.photo = prompt.photo
-        var people: [Person] = []
-        if let person = prompt.aboutPerson {
-            people.append(person)
-        }
-        for person in prompt.photo?.people ?? [] where !people.contains(where: { $0.persistentModelID == person.persistentModelID }) {
-            people.append(person)
-        }
-        story.people = people
+        story.chapter = storyChapter()
+        story.question = isAnswer ? prompt.question : nil
+        story.photo = isAnswer ? prompt.photo : nil
+        story.people = storyPeople()
 
         do {
             try context.save()
@@ -155,9 +211,15 @@ final class TellAStoryFlow {
     func startOver() {
         note = nil
         stopReason = nil
-        prompt = makePrompt()
-        step = .question
-        readIfAutomatic()
+        ownTitle = ""
+        if case .next = seed {
+            kind = .question
+            prompt = makePrompt()
+            step = .question
+            readIfAutomatic()
+        } else {
+            step = .choose
+        }
     }
 
     /// Leaving the screen never loses a story: a recording in progress is
@@ -167,6 +229,42 @@ final class TellAStoryFlow {
         if case .recording = step {
             Task { await finishRecording() }
         }
+    }
+
+    // MARK: - Where the story goes
+
+    private func storyTitle() -> String {
+        switch kind {
+        case .own:
+            let name = StoryTitles.cleaned(ownTitle)
+            return name.isEmpty ? StoryTitles.untitled(on: Date()) : name
+        case .question:
+            return defaultTitle()
+        }
+    }
+
+    private func storyChapter() -> Chapter? {
+        switch kind {
+        case .own:
+            return seedChapter ?? Seeder.chapter(forKey: QuestionBank.moreStoriesKey, in: context)
+        case .question:
+            return prompt.chapter ?? defaultChapter()
+        }
+    }
+
+    /// The person he came from, and anyone in the question's photo.
+    private func storyPeople() -> [Person] {
+        var people: [Person] = []
+        var candidates: [Person] = []
+        if let person = aboutPerson { candidates.append(person) }
+        if kind == .question {
+            if let person = prompt.aboutPerson { candidates.append(person) }
+            candidates += prompt.photo?.people ?? []
+        }
+        for person in candidates where !people.contains(where: { $0.persistentModelID == person.persistentModelID }) {
+            people.append(person)
+        }
+        return people
     }
 
     // MARK: - Choosing the question
@@ -179,7 +277,7 @@ final class TellAStoryFlow {
             personPromptIndex += 1
             let family = Seeder.chapter(forKey: QuestionBank.familyKey, in: context)
             return StoryPrompt(text: text, aboutPerson: person, chapter: family)
-        case .next:
+        case .start, .next:
             return nextQuestionPrompt(in: nil)
         case .chapter(let chapter):
             return nextQuestionPrompt(in: chapter)

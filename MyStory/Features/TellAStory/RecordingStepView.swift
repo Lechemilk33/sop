@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Step 2: listening. The question stays on screen, full size, so he never has
-/// to hold it in his head. There is no Home button and no clock here, so
+/// Listening. What he's talking about stays on screen, full size, so he never
+/// has to hold it in his head. There is no Home button and no clock here, so
 /// nothing can cut a story short and nothing hurries him; "I'm finished" is
 /// the only way on.
 struct RecordingStepView: View {
@@ -12,21 +12,17 @@ struct RecordingStepView: View {
     var body: some View {
         let isInterrupted = recorder.state == .interrupted
         ScreenScaffold(showsTopBar: false) {
-            SectionHeader(title: "Tell a story", systemImage: Symbols.tell, tone: .brick)
             InfoCard(spacing: 10) {
-                if let photo = flow.prompt.photo {
-                    StoredImage(cacheKey: photo.imageCacheKey, data: photo.imageData ?? photo.thumbnailData, placeholderSymbol: Symbols.photo)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 150)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                if flow.kind == .question, let photo = flow.prompt.photo {
+                    WholePhoto(cacheKey: photo.imageCacheKey, data: photo.imageData ?? photo.thumbnailData, maxHeight: 150)
                 }
-                if let person = flow.prompt.aboutPerson {
+                if let person = flow.aboutPerson ?? (flow.kind == .question ? flow.prompt.aboutPerson : nil) {
                     PersonBadge(person: person)
                 }
-                Text("You're answering")
+                Text(flow.kind == .question ? "You're answering" : "Your story")
                     .appFont(.caption)
                     .foregroundStyle(Palette.softInk)
-                Text(flow.prompt.text)
+                Text(subject)
                     .appFont(.question)
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
@@ -68,5 +64,14 @@ struct RecordingStepView: View {
                 .disabled(flow.isSaving)
             }
         }
+    }
+
+    /// The question, or the name he gave his own story.
+    private var subject: String {
+        if flow.kind == .question {
+            return flow.prompt.text
+        }
+        let name = StoryTitles.cleaned(flow.ownTitle)
+        return name.isEmpty ? "Talk about anything you like" : name
     }
 }

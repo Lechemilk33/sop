@@ -22,8 +22,9 @@ struct MyStoryApp: App {
                 }
             }
             .environment(\.textScale, services.settings.textSize.scale)
+            .environment(\.usesExtraClearLetters, services.settings.usesExtraClearLetters)
             .preferredColorScheme(.light)
-            .tint(Palette.brick)
+            .tint(Palette.blue)
         }
     }
 }

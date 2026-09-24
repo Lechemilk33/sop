@@ -1,14 +1,15 @@
 import SwiftData
 import SwiftUI
 
-/// Hearing a story: one big play/pause button, who's in it, and his words to
-/// read along once the family has checked them. The story starts by itself,
-/// so one tap is all it takes.
+/// Hearing a story: one big play/pause button, who's in it, his words to read
+/// along once the family has checked them, and "About this story" to name it
+/// or sort it. The story starts by itself, so one tap is all it takes.
 struct StoryPlayerView: View {
     let request: PlaybackRequest
 
     @Environment(\.modelContext) private var context
     @Environment(StoryPlayer.self) private var player
+    @Environment(Router.self) private var router
 
     @State private var hasStarted = false
 
@@ -23,6 +24,11 @@ struct StoryPlayerView: View {
                     )
                 } else {
                     PlayPauseControl()
+                }
+                BigButton("About this story", systemImage: Symbols.organize, tone: .outline, size: .compact) {
+                    // Paused, not stopped, so coming back carries on.
+                    player.holdWhileOrganizing()
+                    router.push(.storyDetails(story))
                 }
                 // Machine-written words can get names wrong, so he only sees
                 // them after the family has checked the story.
@@ -52,7 +58,11 @@ struct StoryPlayerView: View {
             }
         }
         .onAppear(perform: startIfNeeded)
-        .onDisappear { player.stop() }
+        .onDisappear {
+            if !player.isHolding {
+                player.stop()
+            }
+        }
     }
 
     private var showsAnotherStoryButton: Bool {
@@ -66,6 +76,8 @@ struct StoryPlayerView: View {
     private func startIfNeeded() {
         guard !hasStarted else { return }
         hasStarted = true
+        // Back from "About this story": carry on with the paused story.
+        if player.resumeHold() { return }
         switch request {
         case .single(let story):
             player.play([story])
@@ -82,17 +94,14 @@ struct StoryPlayerView: View {
     }
 }
 
-/// Title, when he told it, the photo (if any) and who's in it.
+/// The photo (whole, never cropped), the title, when he told it, and who's in it.
 private struct StoryDetails: View {
     let story: Story
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             if let photo = story.photo {
-                StoredImage(cacheKey: photo.imageCacheKey, data: photo.imageData ?? photo.thumbnailData, placeholderSymbol: Symbols.photo)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 200)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                WholePhoto(cacheKey: photo.imageCacheKey, data: photo.imageData ?? photo.thumbnailData, maxHeight: 240)
             }
             VStack(alignment: .leading, spacing: 6) {
                 Text(DayText.toldByYou(story.recordedAt))
@@ -105,13 +114,13 @@ private struct StoryDetails: View {
                     .accessibilityAddTraits(.isHeader)
             }
             ForEach(story.sortedPeople) { person in
-                PersonBadge(person: person)
+                PersonBadge(person: person, photoSize: 56)
             }
         }
     }
 }
 
-/// The big round play/pause button and the progress under it.
+/// The big round glass play/pause button and the progress under it.
 private struct PlayPauseControl: View {
     @Environment(StoryPlayer.self) private var player
 
@@ -123,12 +132,13 @@ private struct PlayPauseControl: View {
                 TapGuard.perform { player.togglePlayPause() }
             } label: {
                 Image(systemName: symbol)
-                    .font(.system(size: 56, weight: .bold))
+                    .font(.system(size: 52, weight: .semibold))
                     .foregroundStyle(Palette.ink)
-                    .frame(width: 136, height: 136)
+                    .frame(width: 132, height: 132)
+                    .contentShape(Circle())
+                    .glassEffect(Glass.regular.tint(Palette.marigold).interactive(), in: Circle())
                     .background(Circle().fill(Palette.marigold))
                     .overlay(Circle().strokeBorder(Palette.marigoldRim, lineWidth: Metrics.tappableBorder))
-                    .contentShape(Circle())
             }
             .buttonStyle(PressDimStyle())
             .accessibilityLabel(Text(label))

@@ -67,12 +67,12 @@ extension View {
     MyPeopleView().previewServices()
 }
 
-#Preview("My life") {
-    MyLifeView().previewServices()
+#Preview("My stories") {
+    MyStoriesView().previewServices()
 }
 
 #Preview("Tell a story") {
-    TellAStoryView(seed: .next).previewServices()
+    TellAStoryView(seed: .start).previewServices()
 }
 
 #Preview("Family area") {

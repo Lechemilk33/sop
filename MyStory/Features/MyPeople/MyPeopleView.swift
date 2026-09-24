@@ -5,14 +5,9 @@ import SwiftUI
 /// to him. The family adds people from the Family area.
 struct MyPeopleView: View {
     @Environment(Router.self) private var router
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Query(sort: \Person.sortOrder) private var people: [Person]
 
     var body: some View {
-        let columns = Array(
-            repeating: GridItem(.flexible(), spacing: Metrics.itemSpacing, alignment: .top),
-            count: dynamicTypeSize.isAccessibilitySize ? 1 : 2
-        )
         ScreenScaffold {
             SectionHeader(title: "My people", systemImage: Symbols.people, tone: .blue)
             if people.isEmpty {
@@ -21,36 +16,67 @@ struct MyPeopleView: View {
                     message: "Your family will add the people in your life, with their photos."
                 )
             } else {
-                Text("Tap a photo to see more.")
-                    .appFont(.bodyBold)
-                    .foregroundStyle(Palette.softInk)
-                LazyVGrid(columns: columns, spacing: Metrics.itemSpacing) {
-                    ForEach(people) { person in
-                        PersonCard(person: person) {
-                            router.push(.person(person))
-                        }
-                    }
+                Instruction("Tap someone to see more.")
+                PeopleGrid(people: people) { person in
+                    router.push(.person(person))
                 }
             }
         }
     }
 }
 
-/// A person's photo with their name and relationship underneath.
-private struct PersonCard: View {
-    let person: Person
-    let action: () -> Void
+/// People in two columns (one with very large text), each a photo card.
+struct PeopleGrid: View {
+    let people: [Person]
+    var selected: Set<PersistentIdentifier>?
+    let action: (Person) -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
+        let columns = Array(
+            repeating: GridItem(.flexible(), spacing: 16, alignment: .top),
+            count: dynamicTypeSize.isAccessibilitySize ? 1 : 2
+        )
+        LazyVGrid(columns: columns, spacing: Metrics.itemSpacing) {
+            ForEach(people) { person in
+                PersonCard(
+                    person: person,
+                    isSelected: selected.map { $0.contains(person.persistentModelID) }
+                ) {
+                    action(person)
+                }
+            }
+        }
+    }
+}
+
+/// A person's framed photo with their name and relationship underneath.
+/// When choosing people for a story, a chosen card shows a green check.
+struct PersonCard: View {
+    let person: Person
+    var isSelected: Bool?
+    let action: () -> Void
+
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Metrics.rowCornerRadius, style: .continuous)
+        let chosen = isSelected ?? false
         Button {
             TapGuard.perform(action)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 StoredImage(cacheKey: person.thumbnailCacheKey, data: person.thumbnailData ?? person.photoData)
                     .aspectRatio(1, contentMode: .fit)
-                    .frame(maxWidth: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(alignment: .topTrailing) {
+                        if let isSelected {
+                            SelectedMark(isSelected: isSelected)
+                                .background(Circle().fill(Palette.card).padding(3))
+                                .padding(8)
+                        }
+                    }
                 Text(person.name)
                     .appFont(.button)
                     .foregroundStyle(Palette.ink)
@@ -67,13 +93,19 @@ private struct PersonCard: View {
             .padding(10)
             .padding(.bottom, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(shape.fill(Palette.card))
-            .overlay(shape.strokeBorder(Palette.edge, lineWidth: Metrics.tappableBorder))
+            .background(shape.fill(chosen ? Palette.greenTint : Palette.card))
+            .overlay(
+                shape.strokeBorder(
+                    contrast == .increased ? Palette.ink : (chosen ? Palette.green : Palette.edge),
+                    lineWidth: chosen || contrast == .increased ? Metrics.increasedContrastBorder : Metrics.tappableBorder
+                )
+            )
+            .shadow(color: Palette.ink.opacity(0.06), radius: 10, y: 3)
             .contentShape(shape)
         }
         .buttonStyle(PressDimStyle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(person.relationship.isEmpty ? person.name : "\(person.name), \(person.relationship)"))
-        .accessibilityAddTraits(.isButton)
+        .accessibilityAddTraits(chosen ? [.isButton, .isSelected] : .isButton)
     }
 }

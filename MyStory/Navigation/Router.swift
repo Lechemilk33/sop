@@ -5,9 +5,19 @@ import SwiftUI
 enum Screen {
     case home
     case tellStory(PromptSeed)
-    case myLife
+    case myStories
+    case allStories
     case chapter(Chapter)
     case player(PlaybackRequest)
+    /// "About this story": its name, who's in it, its chapter and photo.
+    case storyDetails(Story)
+    case renameStory(Story)
+    case storyPeople(Story)
+    case storyChapter(Story)
+    case storyPhoto(Story)
+    /// A new chapter, optionally with a story to put in it straight away.
+    case newChapter(for: Story?)
+    case editChapter(Chapter)
     case myPeople
     case person(Person)
     case personStories(Person)
@@ -18,13 +28,32 @@ enum Screen {
         switch self {
         case .home: "Home"
         case .tellStory: "Tell a story"
-        case .myLife: "My life"
+        case .myStories: "My stories"
+        case .allStories: "All my stories"
         case .chapter(let chapter): chapter.name
         case .player: "The story"
+        case .storyDetails: "About this story"
+        case .renameStory: "Name"
+        case .storyPeople: "Who's in it"
+        case .storyChapter: "Chapter"
+        case .storyPhoto: "Photo"
+        case .newChapter: "New chapter"
+        case .editChapter: "Chapter"
         case .myPeople: "My people"
         case .person(let person): person.name
         case .personStories(let person): "Stories with \(person.name)"
         case .familyGate: "For family"
+        }
+    }
+
+    /// Which of the three places the screen belongs to, for its colors.
+    var place: Tone? {
+        switch self {
+        case .home, .familyGate: nil
+        case .tellStory: .brick
+        case .myPeople, .person, .personStories: .blue
+        case .myStories, .allStories, .chapter, .player, .storyDetails, .renameStory,
+             .storyPeople, .storyChapter, .storyPhoto, .newChapter, .editChapter: .marigold
         }
     }
 }
@@ -71,15 +100,22 @@ final class Router {
     }
 }
 
-/// The top bar wired to the router.
+/// The top bar wired to the router. A screen can say where its back button
+/// goes instead of the previous screen.
 struct ScreenTopBar: View {
+    var back: BackAction?
+
     @Environment(Router.self) private var router
 
     var body: some View {
-        TopBar(
-            backTitle: router.backTitle,
-            onBack: { router.pop() },
-            onHome: { router.goHome() }
-        )
+        if let back {
+            TopBar(backTitle: back.title, onBack: back.action, onHome: { router.goHome() })
+        } else {
+            TopBar(
+                backTitle: router.backTitle,
+                onBack: { router.pop() },
+                onHome: { router.goHome() }
+            )
+        }
     }
 }

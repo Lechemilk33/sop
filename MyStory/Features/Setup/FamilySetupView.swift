@@ -32,7 +32,7 @@ struct FamilySetupView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     ProgressView(value: Double(step.rawValue), total: Double(Step.allCases.count - 1))
-                        .tint(Palette.brick)
+                        .tint(Palette.blue)
                         .accessibilityLabel("Setup progress")
                     content
                 }
@@ -44,7 +44,7 @@ struct FamilySetupView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 12)
         }
-        .background(Palette.paper.ignoresSafeArea())
+        .background(Backdrop(tone: nil))
         .onAppear {
             name = settings.personName
         }
@@ -190,7 +190,7 @@ struct FamilySetupView: View {
                 .font(.title3.weight(.bold))
                 .frame(maxWidth: .infinity, minHeight: 60)
         }
-        .buttonStyle(FilledButtonStyle(tone: .brick, minHeight: 64, alignment: .center))
+        .buttonStyle(GlassActionStyle(tone: .blue, minHeight: 64))
     }
 
     private var writingStatus: (text: String, ok: Bool) {

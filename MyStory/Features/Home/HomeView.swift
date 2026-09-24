@@ -2,20 +2,21 @@ import SwiftUI
 
 /// The first thing he sees: a greeting, today's date, and three big choices.
 /// All three always fit on the screen without scrolling; on a small phone or
-/// with very large text the buttons get a little shorter first.
+/// with very large text the tiles get a little shorter first.
 struct HomeView: View {
     @Environment(Router.self) private var router
     @Environment(AppSettings.self) private var settings
+    @Environment(StoryPlayer.self) private var player
 
     var body: some View {
         VStack(spacing: 0) {
             ViewThatFits(in: .vertical) {
-                content(buttonSize: .hero)
+                content(tileHeight: Metrics.heroButtonHeight)
                     .frame(maxHeight: .infinity, alignment: .top)
-                content(buttonSize: .large)
+                content(tileHeight: Metrics.largeButtonHeight)
                     .frame(maxHeight: .infinity, alignment: .top)
                 ScrollView {
-                    content(buttonSize: .large)
+                    content(tileHeight: Metrics.largeButtonHeight)
                 }
                 .scrollBounceBehavior(.basedOnSize)
             }
@@ -26,10 +27,12 @@ struct HomeView: View {
             .padding(.top, 8)
             .padding(.bottom, 12)
         }
-        .background(Palette.paper.ignoresSafeArea())
+        .background(HomeBackdrop())
+        // Coming home ends anything that was waiting, like a paused story.
+        .onAppear { player.stop() }
     }
 
-    private func content(buttonSize: ButtonSize) -> some View {
+    private func content(tileHeight: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: Metrics.sectionSpacing) {
             TimelineView(.everyMinute) { timeline in
                 VStack(alignment: .leading, spacing: 6) {
@@ -44,26 +47,41 @@ struct HomeView: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isHeader)
             }
-
-            Text("What would you like to do?")
-                .appFont(.bodyBold)
-                .foregroundStyle(Palette.ink)
+            .padding(.bottom, 8)
 
             VStack(spacing: Metrics.sectionSpacing) {
-                BigButton("Tell a story", systemImage: Symbols.tell, tone: .brick, size: buttonSize) {
-                    router.push(.tellStory(.next))
+                PlaceTile(
+                    title: "Tell a story",
+                    subtitle: "Record a memory in your own voice",
+                    systemImage: Symbols.tell,
+                    tone: .brick,
+                    minHeight: tileHeight
+                ) {
+                    router.push(.tellStory(.start))
                 }
-                BigButton("My people", systemImage: Symbols.people, tone: .blue, size: buttonSize) {
+                PlaceTile(
+                    title: "My people",
+                    subtitle: "Family and friends",
+                    systemImage: Symbols.people,
+                    tone: .blue,
+                    minHeight: tileHeight
+                ) {
                     router.push(.myPeople)
                 }
-                BigButton("My life", systemImage: Symbols.life, tone: .marigold, size: buttonSize) {
-                    router.push(.myLife)
+                PlaceTile(
+                    title: "My stories",
+                    subtitle: "Listen, and keep them in order",
+                    systemImage: Symbols.stories,
+                    tone: .marigold,
+                    minHeight: tileHeight
+                ) {
+                    router.push(.myStories)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Metrics.screenPadding)
-        .padding(.top, 24)
+        .padding(.top, 28)
         .padding(.bottom, 16)
     }
 }
@@ -73,22 +91,22 @@ private struct FamilyEntryButton: View {
     let action: () -> Void
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
         Button {
             TapGuard.perform(action)
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: Symbols.lock)
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.system(size: 17, weight: .semibold))
                     .accessibilityHidden(true)
                 Text("For family")
                     .appFont(.caption)
             }
             .foregroundStyle(Palette.softInk)
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 26)
             .frame(minHeight: Metrics.minimumTarget)
-            .overlay(shape.strokeBorder(Palette.edge, lineWidth: Metrics.staticBorder))
-            .contentShape(shape)
+            .contentShape(Capsule())
+            .glassEffect(.regular.interactive(), in: Capsule())
+            .overlay(Capsule().strokeBorder(Palette.edge, lineWidth: Metrics.staticBorder))
         }
         .buttonStyle(PressDimStyle())
         .frame(maxWidth: .infinity)

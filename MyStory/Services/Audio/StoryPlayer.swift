@@ -1,5 +1,6 @@
 import AVFoundation
 import Observation
+import SwiftData
 
 /// Plays his stories, one at a time or one after another ("Play them all").
 @MainActor
@@ -27,6 +28,14 @@ final class StoryPlayer {
     /// Changes whenever playback is stopped or restarted, so a pending
     /// "next story" never starts after he has left the screen.
     @ObservationIgnored private var generation = 0
+    /// The story paused while he looks at "About this story", so coming back
+    /// carries on where it was instead of starting over.
+    @ObservationIgnored private var heldStoryID: PersistentIdentifier?
+
+    /// Whether a story is paused and waiting for him to come back to it.
+    var isHolding: Bool {
+        heldStoryID != nil
+    }
 
     init() {
         relay.onFinish = { [weak self] _ in
@@ -80,9 +89,26 @@ final class StoryPlayer {
         }
     }
 
+    /// Pauses the story before he opens "About this story". The next story
+    /// in a "Play them all" list waits too.
+    func holdWhileOrganizing() {
+        generation += 1
+        pauseForInterruption()
+        heldStoryID = currentStory?.persistentModelID
+    }
+
+    /// Coming back from "About this story": true if the paused story is still
+    /// here to carry on with. Either way, the hold is over.
+    func resumeHold() -> Bool {
+        defer { heldStoryID = nil }
+        guard let heldStoryID, let currentStory else { return false }
+        return currentStory.persistentModelID == heldStoryID
+    }
+
     /// Stops and forgets everything, so no screen can show a story that the
     /// family may since have deleted.
     func stop() {
+        heldStoryID = nil
         generation += 1
         stopProgressUpdates()
         player?.stop()

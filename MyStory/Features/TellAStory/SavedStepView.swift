@@ -1,7 +1,8 @@
 import Accessibility
 import SwiftUI
 
-/// Step 3: "Saved", with exactly where the story went.
+/// "Saved", with exactly where the story went, and a way to name it and
+/// choose who's in it straight away.
 struct SavedStepView: View {
     let flow: TellAStoryFlow
     let story: Story
@@ -13,9 +14,9 @@ struct SavedStepView: View {
         ScreenScaffold {
             VStack(spacing: 18) {
                 Image(systemName: Symbols.saved)
-                    .font(.system(size: 64, weight: .heavy))
+                    .font(.system(size: 58, weight: .bold))
                     .foregroundStyle(.white)
-                    .frame(width: 132, height: 132)
+                    .frame(width: 124, height: 124)
                     .background(Circle().fill(Palette.green))
                     .accessibilityHidden(true)
                 Text("Saved")
@@ -38,11 +39,14 @@ struct SavedStepView: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 8)
         } footer: {
-            VStack(spacing: Metrics.sectionSpacing) {
-                BigButton("Listen to it", systemImage: Symbols.play, tone: .marigold, size: .large) {
+            VStack(spacing: Metrics.itemSpacing) {
+                BigButton("Listen to it", systemImage: Symbols.play, tone: .marigold, size: .regular) {
                     router.replaceTop(with: .player(.single(story)))
                 }
-                BigButton("Tell another story", systemImage: Symbols.tell, tone: .brick, size: .large) {
+                BigButton("Name it and add people", systemImage: Symbols.organize, tone: .outline, size: .regular) {
+                    router.replaceTop(with: .storyDetails(story))
+                }
+                BigButton("Tell another story", systemImage: Symbols.tell, tone: .brick, size: .regular) {
                     flow.startOver()
                 }
             }
@@ -55,10 +59,11 @@ struct SavedStepView: View {
 
     private var message: String {
         let thanks = settings.displayName.isEmpty ? "Thank you." : "Thank you, \(settings.displayName)."
+        let name = "\u{201C}\(story.displayTitle)\u{201D}"
         if let chapter = story.chapter {
-            return "\(thanks) It's in My life, under \(chapter.name)."
+            return "\(thanks) \(name) is in My stories, under \(chapter.name)."
         }
-        return "\(thanks) It's in My life."
+        return "\(thanks) \(name) is in My stories."
     }
 
     private var stopNote: String? {
@@ -83,7 +88,7 @@ struct KeptSafeView: View {
             SectionHeader(title: "Tell a story", systemImage: Symbols.tell, tone: .brick)
             EmptyStateMessage(
                 title: "Your story is safe",
-                message: "It's kept on this iPhone and will appear in My life soon. Your family can find it in the Family area."
+                message: "It's kept on this iPhone and will appear in My stories soon. Your family can find it in the Family area."
             )
         }
     }

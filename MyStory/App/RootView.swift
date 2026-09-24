@@ -19,11 +19,12 @@ struct RootView: View {
     var body: some View {
         @Bindable var appState = appState
         ZStack {
-            Palette.paper.ignoresSafeArea()
+            Backdrop(tone: nil)
             if settings.hasCompletedSetup {
                 screen(for: router.current)
                     .id(router.currentID)
                     .transition(.opacity)
+                    .environment(\.placeTone, router.current.place)
                     // Never smaller than the iPhone's default text size on his screens.
                     .dynamicTypeSize(.large...)
             } else {
@@ -65,12 +66,28 @@ struct RootView: View {
             HomeView()
         case .tellStory(let seed):
             TellAStoryView(seed: seed)
-        case .myLife:
-            MyLifeView()
+        case .myStories:
+            MyStoriesView()
+        case .allStories:
+            AllStoriesView()
         case .chapter(let chapter):
             ChapterView(chapter: chapter)
         case .player(let request):
             StoryPlayerView(request: request)
+        case .storyDetails(let story):
+            StoryDetailsView(story: story)
+        case .renameStory(let story):
+            RenameStoryView(story: story)
+        case .storyPeople(let story):
+            StoryPeopleView(story: story)
+        case .storyChapter(let story):
+            StoryChapterView(story: story)
+        case .storyPhoto(let story):
+            StoryPhotoView(story: story)
+        case .newChapter(let story):
+            ChapterEditorView(chapter: nil, storyToFile: story)
+        case .editChapter(let chapter):
+            ChapterEditorView(chapter: chapter, storyToFile: nil)
         case .myPeople:
             MyPeopleView()
         case .person(let person):

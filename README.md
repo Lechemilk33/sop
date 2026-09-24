@@ -11,7 +11,7 @@ A simple, private iPhone app for someone with early-stage Alzheimer's. He record
 2. Pick an iPhone simulator (iOS 26 or later) next to the Run button.
 3. Press Run (⌘R).
 
-The first launch shows the family setup: his name, a family code, the microphone, and the on-device language file for writing stories down.
+The first launch shows the family setup: his name, a family code, the microphone, and the on-device language file for writing stories down. The simulator has no camera, so "Take a Photo" only appears on a real iPhone.
 
 ## Put it on his iPhone
 
@@ -50,11 +50,13 @@ The switch turns itself off again, and no stories, people or photos are touched.
 MyStory/
   App/            Entry point, services, root view
   Navigation/     Router: a simple stack of screens, no gestures
-  DesignSystem/   Palette, type, sizes, BigButton, TopBar, ScreenScaffold, rows
+  DesignSystem/   Palette, type, sizes, Liquid Glass buttons and tiles, TopBar,
+                  ScreenScaffold, rows, photos
   Features/
     Home/         Greeting and the three big choices
-    TellAStory/   Question → listening → saved
-    MyLife/       Chapters and a chapter's stories
+    TellAStory/   Own story or a question → listening → saved
+    MyStories/    All stories, chapters and a chapter's stories
+    Organize/     About this story: name, people, chapter, photo; making chapters
     Player/       Hearing a story
     MyPeople/     People and a person's page
     FamilyGate/   The family code screen
@@ -63,7 +65,8 @@ MyStory/
   Models/         SwiftData models (iCloud-ready)
   Persistence/    Store, built-in chapters and questions, seeding
   Services/       Recording, playback, read-aloud, writing stories down,
-                  question choice, photos, the saved copy, family code, settings
+                  question choice, photos and face framing, the saved copy,
+                  family code, settings
   Resources/      Icon, colors, Atkinson Hyperlegible Next fonts (SIL OFL)
 MyStoryTests/     Unit tests (Swift Testing)
 Config/Info.plist

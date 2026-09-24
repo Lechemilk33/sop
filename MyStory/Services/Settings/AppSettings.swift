@@ -11,6 +11,7 @@ final class AppSettings {
         static let hasCompletedSetup = "hasCompletedSetup"
         static let readQuestionsAutomatically = "readQuestionsAutomatically"
         static let lastCopySavedAt = "lastCopySavedAt"
+        static let usesExtraClearLetters = "usesExtraClearLetters"
     }
 
     private let defaults: UserDefaults
@@ -37,6 +38,11 @@ final class AppSettings {
         didSet { defaults.set(lastCopySavedAt, forKey: Key.lastCopySavedAt) }
     }
 
+    /// Atkinson Hyperlegible instead of the iPhone's own font.
+    var usesExtraClearLetters: Bool {
+        didSet { defaults.set(usesExtraClearLetters, forKey: Key.usesExtraClearLetters) }
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         personName = defaults.string(forKey: Key.personName) ?? ""
@@ -44,6 +50,7 @@ final class AppSettings {
         hasCompletedSetup = defaults.bool(forKey: Key.hasCompletedSetup)
         readQuestionsAutomatically = defaults.bool(forKey: Key.readQuestionsAutomatically)
         lastCopySavedAt = defaults.object(forKey: Key.lastCopySavedAt) as? Date
+        usesExtraClearLetters = defaults.bool(forKey: Key.usesExtraClearLetters)
     }
 
     /// His name for sentences like "Thank you, Dave." Falls back gracefully.

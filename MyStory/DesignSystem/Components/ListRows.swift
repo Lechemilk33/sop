@@ -1,11 +1,14 @@
 import SwiftUI
 
-/// A big tappable row: strong outline, icon or photo on the left, words in the
-/// middle, and a chevron or play button on the right.
+/// A big tappable row: a white card with a clear edge, an icon or photo on
+/// the left, words in the middle, and a chevron, check or play button on the
+/// right. Rows are content, so they're solid rather than glass.
 struct TappableRow<Leading: View, Trailing: View>: View {
+    private let eyebrow: String?
     private let title: String
     private let detail: String?
     private let accessibilityText: String
+    private let isSelected: Bool
     private let action: () -> Void
     private let leading: Leading
     private let trailing: Trailing
@@ -13,29 +16,38 @@ struct TappableRow<Leading: View, Trailing: View>: View {
     @Environment(\.colorSchemeContrast) private var contrast
 
     init(
+        eyebrow: String? = nil,
         title: String,
         detail: String?,
         accessibilityText: String,
+        isSelected: Bool = false,
         action: @escaping () -> Void,
         @ViewBuilder leading: () -> Leading,
         @ViewBuilder trailing: () -> Trailing
     ) {
+        self.eyebrow = eyebrow
         self.title = title
         self.detail = detail
         self.accessibilityText = accessibilityText
+        self.isSelected = isSelected
         self.action = action
         self.leading = leading()
         self.trailing = trailing()
     }
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: Metrics.rowCornerRadius, style: .continuous)
         Button {
             TapGuard.perform(action)
         } label: {
-            HStack(spacing: 14) {
+            HStack(spacing: 16) {
                 leading
                 VStack(alignment: .leading, spacing: 4) {
+                    if let eyebrow {
+                        Text(eyebrow)
+                            .appFont(.caption)
+                            .foregroundStyle(Palette.softInk)
+                    }
                     Text(title)
                         .appFont(.button)
                         .foregroundStyle(Palette.ink)
@@ -45,6 +57,8 @@ struct TappableRow<Leading: View, Trailing: View>: View {
                         Text(detail)
                             .appFont(.caption)
                             .foregroundStyle(Palette.softInk)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Spacer(minLength: 8)
@@ -52,22 +66,56 @@ struct TappableRow<Leading: View, Trailing: View>: View {
             }
             .padding(.vertical, 14)
             .padding(.leading, 14)
-            .padding(.trailing, 16)
+            .padding(.trailing, 18)
             .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
-            .background(shape.fill(Palette.card))
-            .overlay(shape.strokeBorder(contrast == .increased ? Palette.ink : Palette.edge, lineWidth: Metrics.tappableBorder))
+            .background(shape.fill(isSelected ? Palette.greenTint : Palette.card))
+            .overlay(shape.strokeBorder(edgeColor, lineWidth: edgeWidth))
+            .shadow(color: Palette.ink.opacity(0.06), radius: 10, y: 3)
             .contentShape(shape)
         }
         .buttonStyle(PressDimStyle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(accessibilityText))
-        .accessibilityAddTraits(.isButton)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    private var edgeColor: Color {
+        if contrast == .increased { return Palette.ink }
+        return isSelected ? Palette.green : Palette.edge
+    }
+
+    private var edgeWidth: CGFloat {
+        if contrast == .increased || isSelected { return Metrics.increasedContrastBorder }
+        return Metrics.tappableBorder
     }
 }
 
-/// A chapter in My life.
+/// The chevron that means "this opens another screen".
+struct RowChevron: View {
+    var body: some View {
+        Image(systemName: Symbols.forward)
+            .font(.system(size: 22, weight: .semibold))
+            .foregroundStyle(Palette.softInk)
+            .accessibilityHidden(true)
+    }
+}
+
+/// The check on a chosen row or photo.
+struct SelectedMark: View {
+    let isSelected: Bool
+
+    var body: some View {
+        Image(systemName: isSelected ? Symbols.selected : "circle")
+            .font(.system(size: 34, weight: .semibold))
+            .foregroundStyle(isSelected ? Palette.green : Palette.edge)
+            .accessibilityHidden(true)
+    }
+}
+
+/// A chapter in My stories.
 struct ChapterRow: View {
     let chapter: Chapter
+    var isSelected: Bool? = nil
     let action: () -> Void
 
     var body: some View {
@@ -76,19 +124,16 @@ struct ChapterRow: View {
             title: chapter.name,
             detail: StoryCountText.text(count),
             accessibilityText: "\(chapter.name). \(StoryCountText.text(count)).",
+            isSelected: isSelected ?? false,
             action: action
         ) {
-            Image(systemName: chapter.symbolName)
-                .font(.system(size: 26, weight: .bold))
-                .foregroundStyle(Palette.marigoldRim)
-                .frame(width: 56, height: 56)
-                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Palette.marigoldTint))
-                .accessibilityHidden(true)
+            Medallion(systemImage: chapter.symbolName, tone: .marigold, size: Metrics.smallMedallion)
         } trailing: {
-            Image(systemName: Symbols.forward)
-                .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(Palette.softInk)
-                .accessibilityHidden(true)
+            if let isSelected {
+                SelectedMark(isSelected: isSelected)
+            } else {
+                RowChevron()
+            }
         }
     }
 }
@@ -106,24 +151,29 @@ struct StoryRow: View {
             accessibilityText: "\(story.displayTitle). \(detail). Play.",
             action: action
         ) {
-            EmptyView()
+            if let photo = story.photo {
+                StoredImage(cacheKey: photo.thumbnailCacheKey, data: photo.thumbnailData ?? photo.imageData, placeholderSymbol: Symbols.photo)
+                    .frame(width: 56, height: 56)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
         } trailing: {
-            PlayDisc(size: 58)
+            PlayDisc(size: 56)
         }
     }
 }
 
-/// The round marigold play button used in lists.
+/// The round gold play button used in lists.
 struct PlayDisc: View {
     var size: CGFloat
 
     var body: some View {
         Image(systemName: Symbols.play)
-            .font(.system(size: size * 0.42, weight: .bold))
+            .font(.system(size: size * 0.38, weight: .semibold))
             .foregroundStyle(Palette.ink)
+            .offset(x: size * 0.03)
             .frame(width: size, height: size)
             .background(Circle().fill(Palette.marigold))
-            .overlay(Circle().strokeBorder(Palette.marigoldRim, lineWidth: Metrics.tappableBorder))
+            .overlay(Circle().strokeBorder(Palette.marigoldRim, lineWidth: 1.5))
             .accessibilityHidden(true)
     }
 }

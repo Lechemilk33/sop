@@ -1,5 +1,12 @@
 import SwiftUI
 
+/// Where a screen's back button goes, when it isn't simply the previous
+/// screen (for example, from naming a story back to "Tell a story").
+struct BackAction {
+    let title: String
+    let action: () -> Void
+}
+
 /// The layout every one of his screens shares: the top bar pinned at the top
 /// (Home in the top-right corner), the content in the middle, and the main
 /// actions pinned at the bottom so they are always in the same place.
@@ -8,15 +15,20 @@ import SwiftUI
 /// with very large text). When it fits, there is nothing to swipe at all.
 struct ScreenScaffold<Content: View, Footer: View>: View {
     private let showsTopBar: Bool
+    private let back: BackAction?
     private let content: Content
     private let footer: Footer
 
+    @Environment(\.placeTone) private var placeTone
+
     init(
         showsTopBar: Bool = true,
+        back: BackAction? = nil,
         @ViewBuilder content: () -> Content,
         @ViewBuilder footer: () -> Footer
     ) {
         self.showsTopBar = showsTopBar
+        self.back = back
         self.content = content()
         self.footer = footer()
     }
@@ -24,7 +36,7 @@ struct ScreenScaffold<Content: View, Footer: View>: View {
     var body: some View {
         VStack(spacing: 0) {
             if showsTopBar {
-                ScreenTopBar()
+                ScreenTopBar(back: back)
                     .padding(.horizontal, Metrics.screenPadding)
                     .padding(.top, 8)
                     .padding(.bottom, 12)
@@ -36,6 +48,7 @@ struct ScreenScaffold<Content: View, Footer: View>: View {
                     contentStack
                 }
                 .scrollBounceBehavior(.basedOnSize)
+                .scrollDismissesKeyboard(.interactively)
             }
             if !(footer is EmptyView) {
                 footer
@@ -44,7 +57,7 @@ struct ScreenScaffold<Content: View, Footer: View>: View {
                     .padding(.bottom, 12)
             }
         }
-        .background(Palette.paper.ignoresSafeArea())
+        .background(Backdrop(tone: placeTone))
     }
 
     private var contentStack: some View {
@@ -59,7 +72,7 @@ struct ScreenScaffold<Content: View, Footer: View>: View {
 }
 
 extension ScreenScaffold where Footer == EmptyView {
-    init(showsTopBar: Bool = true, @ViewBuilder content: () -> Content) {
-        self.init(showsTopBar: showsTopBar, content: content, footer: { EmptyView() })
+    init(showsTopBar: Bool = true, back: BackAction? = nil, @ViewBuilder content: () -> Content) {
+        self.init(showsTopBar: showsTopBar, back: back, content: content, footer: { EmptyView() })
     }
 }

@@ -37,7 +37,7 @@ struct SaveCopyView: View {
                 } else if isWorking {
                     VStack(alignment: .leading, spacing: 10) {
                         ProgressView(value: progress)
-                            .tint(Palette.brick)
+                            .tint(Palette.blue)
                         Text("Making the copy…")
                             .foregroundStyle(Palette.softInk)
                     }

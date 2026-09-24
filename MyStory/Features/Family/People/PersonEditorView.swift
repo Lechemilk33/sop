@@ -1,6 +1,7 @@
 import PhotosUI
 import SwiftData
 import SwiftUI
+import UIKit
 
 /// Add or edit someone in My people. Changes only apply when you tap Save.
 struct PersonEditorView: View {
@@ -21,7 +22,11 @@ struct PersonEditorView: View {
     @State private var helloAudio: Data?
     @State private var helloDuration: Double = 0
     @State private var photoItem: PhotosPickerItem?
+    @State private var isChoosingPhoto = false
+    @State private var isTakingPhoto = false
+    @State private var framingSession: FramingSession?
     @State private var isLoadingPhoto = false
+    @State private var photoProblem: String?
     @State private var isConfirmingDelete = false
     @State private var hasLoaded = false
 
@@ -36,25 +41,55 @@ struct PersonEditorView: View {
     var body: some View {
         Form {
             Section {
-                HStack {
-                    Spacer()
-                    ZStack {
-                        StoredImage(cacheKey: "editor-\(person?.uuid.uuidString ?? "new")", data: thumbnailData ?? photoData)
-                            .frame(width: 150, height: 150)
-                            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        if isLoadingPhoto {
-                            ProgressView()
+                VStack(spacing: 12) {
+                    Menu {
+                        Button {
+                            isChoosingPhoto = true
+                        } label: {
+                            Label("Choose from Photos", systemImage: "photo.on.rectangle")
                         }
+                        if CameraPicker.isAvailable {
+                            Button {
+                                isTakingPhoto = true
+                            } label: {
+                                Label("Take a Photo", systemImage: "camera")
+                            }
+                        }
+                        if photoData != nil {
+                            Button {
+                                Task { await startFraming() }
+                            } label: {
+                                Label("Move and Zoom", systemImage: "crop")
+                            }
+                            Button(role: .destructive) {
+                                photoData = nil
+                                thumbnailData = nil
+                            } label: {
+                                Label("Remove Photo", systemImage: "trash")
+                            }
+                        }
+                    } label: {
+                        portraitPreview
                     }
-                    Spacer()
+                    .disabled(isLoadingPhoto)
+                    .accessibilityLabel(photoData == nil ? "Add a photo" : "Change the photo")
+                    Text(photoData == nil ? "Tap to add a photo" : "Tap the photo to change it, or to move and zoom it")
+                        .font(.subheadline)
+                        .foregroundStyle(Palette.softInk)
+                        .multilineTextAlignment(.center)
+                    if let photoProblem {
+                        Text(photoProblem)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Palette.brick)
+                            .multilineTextAlignment(.center)
+                    }
                 }
-                PhotosPicker(selection: $photoItem, matching: .images) {
-                    Label(photoData == nil ? "Choose a photo" : "Change photo", systemImage: "photo")
-                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
             } header: {
                 Text("Photo")
             } footer: {
-                Text("A clear, recent photo of their face works best. Real photos are much easier to recognize than drawings.")
+                Text("A clear, recent photo of their face works best. The app frames it around their face; use Move and Zoom to adjust it.")
             }
 
             Section("Name") {
@@ -120,8 +155,26 @@ struct PersonEditorView: View {
         }
         .onAppear(perform: load)
         .onDisappear { clipPlayer.stop() }
+        .photosPicker(isPresented: $isChoosingPhoto, selection: $photoItem, matching: .images)
         .onChange(of: photoItem) { _, item in
+            guard let item else { return }
             Task { await loadPhoto(item) }
+        }
+        .fullScreenCover(isPresented: $isTakingPhoto) {
+            CameraPicker(
+                onPicked: { image in
+                    isTakingPhoto = false
+                    guard let data = image.jpegData(compressionQuality: 0.9) else { return }
+                    Task { await usePhoto(data) }
+                },
+                onCancel: { isTakingPhoto = false }
+            )
+            .ignoresSafeArea()
+        }
+        .sheet(item: $framingSession) { session in
+            PhotoFramingView(session: session) { framing in
+                Task { await applyFraming(framing) }
+            }
         }
         .confirmationDialog(
             "Remove \(trimmedName) from My people?",
@@ -148,17 +201,77 @@ struct PersonEditorView: View {
         helloDuration = person.helloDuration
     }
 
-    private func loadPhoto(_ item: PhotosPickerItem?) async {
-        guard let item else { return }
+    /// The framed square he'll see, with a "Change" badge.
+    private var portraitPreview: some View {
+        ZStack {
+            StoredImage(cacheKey: "editor-\(person?.uuid.uuidString ?? "new")", data: thumbnailData ?? photoData)
+                .frame(width: 180, height: 180)
+                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .strokeBorder(Palette.edge, lineWidth: Metrics.tappableBorder)
+                )
+            if isLoadingPhoto {
+                ProgressView()
+                    .controlSize(.large)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            Label(photoData == nil ? "Add" : "Change", systemImage: photoData == nil ? "plus" : "pencil")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(Palette.blue))
+                .offset(y: 14)
+        }
+        .padding(.bottom, 14)
+    }
+
+    private func loadPhoto(_ item: PhotosPickerItem) async {
+        defer { photoItem = nil }
+        guard let data = try? await item.loadTransferable(type: Data.self) else {
+            photoProblem = "That photo couldn't be opened. Please try another one."
+            return
+        }
+        await usePhoto(data)
+    }
+
+    /// A new photo: frame it around their face, then let the family adjust.
+    private func usePhoto(_ data: Data) async {
+        isLoadingPhoto = true
+        photoProblem = nil
+        defer { isLoadingPhoto = false }
+        guard let prepared = await Task.detached(priority: .userInitiated, operation: { ImageProcessor.preparePortrait(data) }).value,
+              let image = UIImage(data: prepared.full) else {
+            photoProblem = "That photo couldn't be used. Please try another one."
+            return
+        }
+        photoData = prepared.full
+        thumbnailData = await Task.detached(priority: .userInitiated) {
+            ImageProcessor.portrait(from: prepared.full, framing: prepared.framing)
+        }.value
+        framingSession = FramingSession(image: image, framing: prepared.framing, automatic: prepared.framing)
+    }
+
+    /// Move and zoom the photo that's already there.
+    private func startFraming() async {
+        guard let photoData else { return }
         isLoadingPhoto = true
         defer { isLoadingPhoto = false }
-        guard let data = try? await item.loadTransferable(type: Data.self) else { return }
-        let prepared = await Task.detached(priority: .userInitiated) {
-            ImageProcessor.prepare(data)
-        }.value
-        if let prepared {
-            photoData = prepared.full
-            thumbnailData = prepared.thumbnail
+        let full = photoData
+        guard let framing = await Task.detached(priority: .userInitiated, operation: { ImageProcessor.automaticFraming(for: full) }).value,
+              let image = UIImage(data: full) else { return }
+        framingSession = FramingSession(image: image, framing: framing, automatic: framing)
+    }
+
+    private func applyFraming(_ framing: PortraitFraming) async {
+        guard let photoData else { return }
+        let full = photoData
+        isLoadingPhoto = true
+        defer { isLoadingPhoto = false }
+        if let portrait = await Task.detached(priority: .userInitiated, operation: { ImageProcessor.portrait(from: full, framing: framing) }).value {
+            thumbnailData = portrait
         }
     }
 

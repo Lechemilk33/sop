@@ -106,3 +106,32 @@ enum StoryCountText {
         }
     }
 }
+
+/// Names for stories.
+enum StoryTitles {
+    /// The longest name kept, so it always fits on a screen.
+    static let maximumLength = 120
+
+    /// For a story he didn't name: "My story from Tuesday, September 23".
+    static func untitled(on date: Date, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
+        "My story from \(DayText.full(date, locale: locale, timeZone: timeZone))"
+    }
+
+    /// A name he typed or said, tidied: one line, single spaces, not too long.
+    static func cleaned(_ raw: String) -> String {
+        let words = raw.split(whereSeparator: { $0.isWhitespace || $0.isNewline })
+        return String(words.joined(separator: " ").prefix(maximumLength))
+    }
+}
+
+/// Lists written the way people say them: "Emily", "Emily and Jake",
+/// "Emily, Jake and Sam".
+enum ListText {
+    static func joined(_ items: [String]) -> String {
+        switch items.count {
+        case 0: return ""
+        case 1: return items[0]
+        default: return items.dropLast().joined(separator: ", ") + " and " + items[items.count - 1]
+        }
+    }
+}

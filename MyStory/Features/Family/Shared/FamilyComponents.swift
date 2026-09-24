@@ -11,7 +11,7 @@ struct FamilyMenuRow: View {
         HStack(spacing: 14) {
             Image(systemName: systemImage)
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(Palette.brick)
+                .foregroundStyle(Palette.blue)
                 .frame(width: 30)
                 .accessibilityHidden(true)
             Text(title)
@@ -61,7 +61,7 @@ struct PeoplePicker: View {
                         if selection.contains(id) {
                             Image(systemName: "checkmark")
                                 .font(.body.weight(.bold))
-                                .foregroundStyle(Palette.brick)
+                                .foregroundStyle(Palette.blue)
                         }
                     }
                 }
@@ -85,9 +85,9 @@ enum RelationshipSuggestions {
 }
 
 extension View {
-    /// The family area's warm background behind forms and lists.
+    /// The family area's calm background behind forms and lists.
     func familyBackground() -> some View {
         scrollContentBackground(.hidden)
-            .background(Palette.paper.ignoresSafeArea())
+            .background(Backdrop(tone: nil))
     }
 }

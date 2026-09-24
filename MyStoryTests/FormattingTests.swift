@@ -69,3 +69,40 @@ struct DurationTests {
         #expect(DayText.isoDay(date(9, day: 5), timeZone: TimeZone(identifier: "UTC")!) == "2026-09-05")
     }
 }
+
+@Suite("Story names")
+struct StoryTitlesTests {
+    @Test func tidiesWhatHeTyped() {
+        #expect(StoryTitles.cleaned("  The   summer\nat the lake  ") == "The summer at the lake")
+        #expect(StoryTitles.cleaned("\n \t ") == "")
+    }
+
+    @Test func keepsNamesToALength() {
+        let long = String(repeating: "word ", count: 60)
+        #expect(StoryTitles.cleaned(long).count == StoryTitles.maximumLength)
+    }
+
+    @Test func namesUntitledStoriesByTheDay() {
+        let name = StoryTitles.untitled(on: date(10), locale: Locale(identifier: "en_US"), timeZone: TimeZone(identifier: "UTC")!)
+        #expect(name == "My story from Wednesday, September 23")
+    }
+}
+
+@Suite("Lists of names")
+struct ListTextTests {
+    @Test func joinsTheWayPeopleSayIt() {
+        #expect(ListText.joined([]) == "")
+        #expect(ListText.joined(["Emily"]) == "Emily")
+        #expect(ListText.joined(["Emily", "Jake"]) == "Emily and Jake")
+        #expect(ListText.joined(["Emily", "Jake", "Sam"]) == "Emily, Jake and Sam")
+    }
+}
+
+@Suite("Chapter pictures")
+struct ChapterPictureTests {
+    @Test func eachPictureIsDifferentAndNamed() {
+        let symbols = Symbols.chapterChoices.map(\.symbol)
+        #expect(Set(symbols).count == symbols.count)
+        #expect(Symbols.chapterChoices.allSatisfy { !$0.name.isEmpty })
+    }
+}

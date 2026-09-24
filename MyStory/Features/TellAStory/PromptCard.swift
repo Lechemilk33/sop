@@ -13,7 +13,7 @@ struct PromptCard: View {
                         .appFont(.caption)
                 } icon: {
                     Image(systemName: Symbols.askedBy)
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.system(size: 18, weight: .semibold))
                 }
                 .foregroundStyle(Palette.ink)
                 .padding(.horizontal, 14)
@@ -32,10 +32,7 @@ struct PromptCard: View {
                 PersonBadge(person: person)
             }
             if let photo = prompt.photo {
-                StoredImage(cacheKey: photo.imageCacheKey, data: photo.imageData ?? photo.thumbnailData, placeholderSymbol: Symbols.photo)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 190)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                WholePhoto(cacheKey: photo.imageCacheKey, data: photo.imageData ?? photo.thumbnailData, maxHeight: 220)
             }
         }
     }
@@ -44,12 +41,14 @@ struct PromptCard: View {
 /// Someone's photo, name and what they are to him. Not tappable.
 struct PersonBadge: View {
     let person: Person
+    var photoSize: CGFloat = 64
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             StoredImage(cacheKey: person.thumbnailCacheKey, data: person.thumbnailData ?? person.photoData)
-                .frame(width: 60, height: 60)
+                .frame(width: photoSize, height: photoSize)
                 .clipShape(Circle())
+                .overlay(Circle().strokeBorder(Palette.hairline, lineWidth: Metrics.staticBorder))
             VStack(alignment: .leading, spacing: 2) {
                 Text(person.name)
                     .appFont(.subtitle)
